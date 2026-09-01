@@ -1,5 +1,15 @@
 # PROJECT_STATE.md
 
+> **Provenance note:** LEVEL 1 was integrated directly into the user's own
+> deployed codebase (their real `vendor/`, `.env`, `composer.lock`, `artisan`
+> from an actual `composer install` — not regenerated here). Only new LEVEL 1
+> files were added and two existing files (`routes/web.php`,
+> `resources/views/layouts/app.blade.php`) received minimal, targeted edits.
+> Nothing in `app/`, `config/`, `bootstrap/`, or `database/migrations/` was
+> touched. `npm install` + `npx vite build` were re-run against this exact
+> merged codebase and produced identical, correct output to the earlier
+> verification — see the LEVEL 1 entry in `CHANGELOG.md`.
+
 **This file is the single source of truth for where Growza currently stands.**
 Read this before starting any new level, per the master prompt's workflow (§57).
 
@@ -7,20 +17,21 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 
 ## Current Version
 
-`0.1.0-foundation` (pre-1.0 — LEVEL 0 in progress)
+`0.2.0-foundation` (pre-1.0 — LEVEL 1 delivered)
 
 ## Completed Levels
 
 | Level | Name | Status | Verified? |
 |---|---|---|---|
 | — | Master Architecture Specification | ✅ Complete | Reviewed with stakeholder |
-| 0 | Project Foundation | 🟡 In progress (this delivery) | ⚠️ Unverified — see below |
+| 0 | Project Foundation | ✅ Complete | ✅ Verified — confirmed running via Docker Compose (Laravel, Nginx, PostgreSQL, Redis, queue worker, scheduler all up; `/` serves Growza homepage) |
+| 1 | Brand & Design System | ✅ Complete | 🟡 Partially verified — see below |
 
 ## Pending Levels
 
 Levels 1 through 47+ per the master prompt, sequenced into batches — see `ARCHITECTURE.md` §21 for the full batch plan (Batch A: Foundation → Batch I: v2.0 Expansion).
 
-**Immediately next: Batch A remainder** — LEVEL 1 (Design System), LEVEL 3 (Authentication), LEVEL 4 (RBAC implementation on top of the schema this level creates).
+**Immediately next: Batch A remainder** — LEVEL 3 (Authentication), LEVEL 4 (RBAC implementation on top of the schema LEVEL 0 created).
 
 ---
 
@@ -42,6 +53,29 @@ Levels 1 through 47+ per the master prompt, sequenced into batches — see `ARCH
 - Pest testing configured (`phpunit.xml`, `tests/Pest.php`, `tests/TestCase.php`) with 3 baseline tests (environment boot, homepage 200, `/up` health check)
 - `.gitignore` matching Laravel 11 defaults plus Growza-specific ignores
 - One placeholder Blade layout + homepage view, solely so the LEVEL 0 skeleton has a real working request→response path rather than zero routes
+
+## LEVEL 1 — Brand & Design System (this delivery)
+
+- Vite + Tailwind CSS + Alpine.js pipeline (`package.json`, `vite.config.js`, `tailwind.config.js`, `postcss.config.js`)
+- Bespoke two-color token system: `ink` (warm neutral scale) + `ember` (single amber accent) — not Tailwind's default slate/blue, specifically to avoid the generic-AI-SaaS look. Muted semantic colors (success/warning/danger/info).
+- Typography pairing: Fraunces (display serif, headings) + Public Sans (UI/body) — see `DESIGN_SYSTEM.md` for the full rationale.
+- Restrained radius scale (8px default, 14px `lg`, no 20px+ "blob" cards) and three low-elevation shadow levels (no glow, no glassmorphism).
+- Blade component library covering exactly the LEVEL 1 scope: button, input/textarea/select, card, badge, alert, modal, dropdown, marketing nav bar, breadcrumbs, a Tailwind-styled pagination view, empty state, loading state. **Deliberately does not** include LEVEL 40's broader component set (Tabs, StatCard, ConfirmDialog, Toast) — that's a later level, not built ahead of schedule.
+- Live style guide at `/dev/design-system` (non-production only) rendering every component with real props — this is the actual review mechanism for a design system, not a static screenshot.
+- `DESIGN_SYSTEM.md` — full written spec plus an explicit **Known Gaps** section (modal has no focus trap yet — flagged for LEVEL 29, not silently shipped as done; no dark mode; a documented Tailwind dynamic-class-interpolation trap and how this codebase avoids it).
+
+### What was actually verified this level (not just claimed)
+
+Unlike LEVEL 0, **Node/npm are available in this sandbox**, so this was verified for real rather than only reviewed by eye:
+- `npm install` — succeeded, 93 packages resolved cleanly.
+- `npx vite build` — succeeded, produced `app-*.css` (37.65 kB) and `app-*.js` (54.11 kB).
+- Caught and fixed a real bug during verification: the style guide's color-swatch loop builds Tailwind class names dynamically (`bg-ink-{{ $shade }}`), which Tailwind's JIT compiler does not detect from source scanning alone — this would have silently rendered blank swatches. Fixed with an explicit `safelist` in `tailwind.config.js`, then re-verified by grepping the compiled CSS output for the specific classes (`bg-ink-50`, `bg-ink-500`, `bg-ink-950`, `bg-ember-500`, `bg-ember-900`) and confirming each one actually compiled. This is the kind of check §5 of the master prompt calls for — not just "the code looks correct."
+
+### Still unverified (flagged, not assumed)
+
+- The Blade templates themselves have **not** been rendered by PHP (no PHP interpreter here) — syntax was reviewed by hand but a real `php artisan serve` + visiting `/dev/design-system` in a browser has not happened. Do this next and report anything that breaks.
+- Alpine.js interactivity (modal open/close, dropdown, mobile nav toggle) has not been exercised in a real browser.
+- No responsive breakpoint check has been done against the LEVEL 58 checklist (1440/1280/1024/768/430/390/375px) — that requires actually opening the page.
 
 ## Architecture Decisions Finalized This Level
 
@@ -91,12 +125,15 @@ Not deployed anywhere. Docker Compose stack is for local development only — se
 
 ---
 
-## ⚠️ Unverified Items (per master prompt §5 — explicitly flagged, not assumed passing)
+## ✅ LEVEL 0 Verification (confirmed by user after real deployment)
 
-1. `composer install` has not been run — dependency resolution/version conflicts are unverified.
-2. Migrations have not been run against a real PostgreSQL instance — column-level syntax is unverified beyond manual review.
-3. Pest tests have not been executed.
-4. `php artisan serve` / the `/` and `/up` routes have not been hit by an actual HTTP request.
-5. Docker Compose stack has not been built or started.
+1. `composer install` — resolved successfully.
+2. Migrations — ran successfully against real PostgreSQL.
+3. `docker compose up` — full stack (app, nginx, postgres, redis, queue worker, scheduler) came up healthy.
+4. `php artisan key:generate` — succeeded.
+5. Storage permissions — required a manual fix on first boot (expected on some host/Docker UID setups; not a code defect, but worth a one-line note in DEPLOYMENT.md when that level is written: `chown -R www-data:www-data storage bootstrap/cache` if `APP_KEY`/log-write errors appear on first boot).
+6. `http://localhost:8000` — responds and correctly renders the "Growza — Grow Smarter. Reach Further." placeholder homepage.
 
-**Action needed from you:** clone this into a real PHP 8.3 + Composer environment, run `composer install`, copy `.env.example` to `.env`, run `php artisan key:generate`, set up Postgres + Redis (or `docker compose up`), run `php artisan migrate`, then `php artisan test`. Report back anything that fails — I'll fix it via the Error Protocol rather than guessing.
+Pest test execution (`php artisan test`) was not explicitly reported — confirm this separately when convenient; not a blocker for starting LEVEL 1.
+
+**LEVEL 0 is CLOSED.**

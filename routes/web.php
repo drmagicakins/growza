@@ -19,6 +19,15 @@ Route::get('/', function () {
     return view('marketing.home');
 })->name('home');
 
+// Living design-system reference (LEVEL 1). Registered only outside
+// production so the style guide never becomes a public route in a real
+// deployment — see DESIGN_SYSTEM.md.
+if (! app()->environment('production')) {
+    Route::get('/dev/design-system', function () {
+        return view('dev.design-system');
+    })->name('dev.design-system');
+}
+
 // require __DIR__.'/marketing.php';   // LEVEL 2
 // require __DIR__.'/auth.php';        // LEVEL 3
 // require __DIR__.'/dashboard.php';   // LEVEL 5
