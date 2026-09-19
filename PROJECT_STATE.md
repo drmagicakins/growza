@@ -17,7 +17,7 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 
 ## Current Version
 
-`0.3.0-foundation` (pre-1.0 — LEVEL 2 delivered)
+`0.4.0-foundation` (pre-1.0 — LEVEL 3 delivered)
 
 ## Completed Levels
 
@@ -26,15 +26,16 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 | — | Master Architecture Specification | ✅ Complete | Reviewed with stakeholder |
 | 0 | Project Foundation | ✅ Complete | ✅ Verified — confirmed running via Docker Compose (Laravel, Nginx, PostgreSQL, Redis, queue worker, scheduler all up; `/` serves Growza homepage) |
 | 1 | Brand & Design System | ✅ Complete | ✅ Verified — the reported "Alpine never initialises" defect was a **QA harness artefact, not an app bug**; closed with user confirmation. See `storage/app/HANDOFF.md`. |
-| 2 | Public Marketing Website | ✅ Complete | ✅ Verified — 36 Pest tests pass, all 16 routes 200, contact form round-trip persisted to DB. First real PHP execution of this codebase. |
+| 2 | Public Marketing Website | ✅ Complete | ✅ Verified — all 16 routes 200, contact form round-trip persisted to DB. |
+| 3 | Authentication | ✅ Complete | ✅ Verified — **59 Pest tests pass (137 assertions)**, 51 routes, registration/login/logout/verification/2FA driven over real HTTP, audit trail populated. |
 
 ## Pending Levels
 
 Levels 1 through 47+ per the master prompt, sequenced into batches — see `ARCHITECTURE.md` §21 for the full batch plan (Batch A: Foundation → Batch I: v2.0 Expansion).
 
-**Immediately next: Batch A remainder** — LEVEL 3 (Authentication), LEVEL 4 (RBAC implementation on top of the schema LEVEL 0 created).
+**Immediately next: Batch A remainder** — LEVEL 4 (RBAC implementation on top of the schema LEVEL 0 created).
 
-**LEVEL 3 readiness note:** LEVEL 3 is authored against the LEVEL 2 route names as they now stand — unprefixed (`home`, `faq`, `contact`), with `contact.store`, `why-growza` and `legal.*`. Those all exist and were verified. The earlier local LEVEL 2 implementation used a `marketing.` name prefix and did **not** define `why-growza`/`legal.*`/`contact.store`; it is preserved on branch `level2-local-implementation` for reference only and must not be merged over this.
+**LEVEL 4 readiness note:** the RBAC *schema* already exists from LEVEL 0 (`permissions`, `roles`, `model_has_permissions`, `model_has_roles`, `role_has_permissions`, plus `teams`/`team_user`, all team-scoped) and `config/permission.php` is in place with `teams => true`. The `permission` and `role` middleware aliases are registered in `bootstrap/app.php` and their implementations exist but are unseeded. LEVEL 4 is therefore mostly seeders + gates + a permissions UI, not schema work. `spatie/laravel-permission` is installed in `vendor/`.
 
 ---
 
@@ -126,7 +127,11 @@ and re-checked with `qa-alpine.mjs`.
 
 **LEVEL 2 added (all verified 200):** `/`, `/services`, `/pricing`, `/how-it-works`, `/why-growza`, `/faq`, `/contact` (GET + throttled POST), the five legal pages under `/legal/*`, `/sitemap.xml`, `/robots.txt`.
 
-Also present: `/dev/design-system` (LEVEL 1, non-production only) and the framework `/up` health check. Unknown routes return a branded 404. Remaining routes are commented-out `require` lines waiting on their owning level (`auth.php` LEVEL 3, `dashboard.php` LEVEL 5).
+**LEVEL 3 added (all verified):** Fortify's endpoints — `login` (GET/POST), `register`, `logout`, `password.request/email/reset/update`, `password.confirm`, `verification.notice/verify/send`, `two-factor.login/challenge/enable/confirm/disable/recovery-codes` — plus Growza's own `dashboard` and `settings.security` in `routes/auth.php`.
+
+Also present: `/dev/design-system` (LEVEL 1, non-production only) and the framework `/up` health check. Unknown routes return a branded 404. `php artisan route:list` reports **51 routes**.
+
+The only remaining commented-out `require` is `dashboard.php` (LEVEL 5), which will hold the real customer dashboard once it exists.
 
 ## Environment Requirements
 **Confirmed working:** PHP **8.4.12** (8.4.1 is the hard floor — `vendor/composer/platform_check.php` rejects 8.2/8.3), MySQL 8, Node 24, Composer 2. The CLI PHP used for verification lives at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe` and needs `extension=mbstring` enabled in its `php.ini`.
@@ -150,10 +155,15 @@ None active. Payment gateway and provider adapter contracts exist only as docume
 - **`ContactRequest` is dead code.** `ContactFormRequest` is the one wired into `ContactController`. Retained verbatim rather than pruned; safe to delete when convenient.
 - **No PHP/Composer execution was available in the authoring environment (historical).** Superseded by the first bullet above.
 - **`composer.json` now requires PHP >= 8.4.1** (`vendor/composer/platform_check.php` hard-fails on 8.2, which is what XAMPP ships). Confirmed 2026-02-14 with PHP 8.4.12. Anyone running the documented stack needs 8.4+, not the "PHP 8.3+" stated under Environment Requirements below.
+- **⚠️ `config/session.php` MUST NOT be overwritten from a level archive.** The level-2 **and** level-3 archives both ship a literal `'connection' => 'session'`, which names a DB connection that does not exist and makes every request 500 under `SESSION_DRIVER=database`. It has been reverted twice. If a future level archive contains this file, keep the repo's version.
+- **Local dev needs `MAIL_MAILER=log`.** The `.env` default (`smtp` on port 2525) assumes a Mailpit/Mailhog instance that is not running, so registration fails with a connection error when sending the verification email. Tests are unaffected (`phpunit.xml` sets `MAIL_MAILER=array`).
+- **Registration needs HTTPS egress** for Laravel's `uncompromised()` breach check against HaveIBeenPwned. The CLI PHP at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\` had `curl.cainfo` and `openssl.cafile` unset, so every registration threw a cURL 60 error. Fixed by downloading `cacert.pem` into `storage/app/` and pointing `php.ini` at it. **Production on Linux needs none of this** (system CA store). If registration 500s after a fresh PHP install, this is why.
+- **`EnsureUserIsActive` is registered but not yet applied to any route group.** It only matters once an admin can suspend a user (LEVEL 16/17). The suspension itself is already audited and the middleware is tested; it just has nothing to guard yet.
+- **Email verification is enforced by the `verified` middleware on `dashboard`, but nothing in the UI resends the link from a failure screen yet** — Fortify's `verification.send` route exists; the marketing/dashboard surface for it lands with the real dashboard at LEVEL 5.
 - `config/permission.php` is included by hand (matching spatie/laravel-permission's published defaults, with `teams => true`) since `vendor:publish` cannot run here. Worth diffing against the package's actual published version after `composer install`, in case the installed package version's default config has shifted since this was written.
 
 ## Tests
-**36 tests, 69 assertions — all passing** (`php artisan test`, PHP 8.4.12, MySQL).
+**59 tests, 137 assertions — all passing** (`php artisan test`, PHP 8.4.12, MySQL).
 
 - `tests/Unit/ExampleTest.php`
 - `tests/Feature/HealthCheckTest.php` — `/up`

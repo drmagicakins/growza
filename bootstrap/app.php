@@ -31,6 +31,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => App\Http\Middleware\EnsureUserHasPermission::class,
             'role' => App\Http\Middleware\EnsureUserHasRole::class,
             'api.scope' => App\Http\Middleware\EnsureApiTokenHasScope::class,
+            // Suspension enforcement (LEVEL 3). Applied to every
+            // authenticated route group so an admin suspension takes effect
+            // on the suspended user's very next request rather than whenever
+            // their session happens to expire.
+            'active' => App\Http\Middleware\EnsureUserIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

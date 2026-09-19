@@ -13,6 +13,14 @@ use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvi
 class EventServiceProvider extends ServiceProvider
 {
     protected $listen = [
+        // Authentication events (LEVEL 3)
+        \Illuminate\Auth\Events\Login::class => [
+            \App\Domain\Auth\Listeners\HandleSuccessfulLogin::class,
+        ],
+        \Illuminate\Auth\Events\Failed::class => [
+            \App\Domain\Auth\Listeners\AuditFailedLogin::class,
+        ],
+
         // \App\Domain\Orders\Events\OrderCompleted::class => [
         //     \App\Domain\Notifications\Listeners\SendOrderCompletedNotification::class,
         //     \App\Domain\Referrals\Listeners\CreditReferralCommission::class,

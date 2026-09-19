@@ -44,6 +44,7 @@
     40 => 'App\\Providers\\EventServiceProvider',
     41 => 'App\\Providers\\PaymentServiceProvider',
     42 => 'App\\Providers\\ProviderIntegrationServiceProvider',
+    43 => 'App\\Providers\\FortifyServiceProvider',
   ),
   'eager' => 
   array (
@@ -74,6 +75,7 @@
     24 => 'App\\Providers\\EventServiceProvider',
     25 => 'App\\Providers\\PaymentServiceProvider',
     26 => 'App\\Providers\\ProviderIntegrationServiceProvider',
+    27 => 'App\\Providers\\FortifyServiceProvider',
   ),
   'deferred' => 
   array (

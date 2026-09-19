@@ -11,4 +11,10 @@ return [
     App\Providers\EventServiceProvider::class,
     App\Providers\PaymentServiceProvider::class,
     App\Providers\ProviderIntegrationServiceProvider::class,
+
+    // Wires Fortify to Growza's own Auth domain actions and Blade views
+    // (LEVEL 3). Fortify is headless: it owns the routes and plumbing, while
+    // validation, audit writes and security notifications live in
+    // App\Domain\Auth\Actions so they can be unit tested without HTTP.
+    App\Providers\FortifyServiceProvider::class,
 ];

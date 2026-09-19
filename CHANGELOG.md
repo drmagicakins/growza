@@ -1,6 +1,48 @@
 # CHANGELOG
 All notable changes to Growza are recorded here, newest first. Format loosely follows Keep a Changelog; versions track `PROJECT_STATE.md`.
 
+## [0.4.0-foundation] — LEVEL 3: Authentication
+### Added
+- **Fortify-backed authentication** (headless): registration, login, logout, email verification, password reset, password confirmation, and TOTP two-factor with recovery codes
+- `routes/auth.php` — the screens Growza owns (`dashboard`, `settings.security`); Fortify registers the endpoints themselves
+- `app/Domain/Auth/Actions/` — `CreateNewUser`, `UpdateUserProfileInformation`, `UpdateUserPassword`, `ResetUserPassword`: validation and business logic kept out of controllers and HTTP-testable on their own
+- `app/Domain/Auth/Events/` + `Listeners/` — `HandleSuccessfulLogin`, `HandleFailedLogin` write audit records; suspension and verification notifications
+- `config/fortify.php` (features enabled incl. 2FA with confirm + confirmPassword), `config/auth.php`
+- `App\Providers\FortifyServiceProvider` — binds the domain actions and Blade views, and registers the `login` / `two-factor` rate limiters
+- `App\Http\Middleware\EnsureUserIsActive` (alias `active`) — enforces suspension on the next request rather than at session expiry
+- Auth Blade views under `resources/views/auth/` (login, register, forgot-password, reset-password, verify-email, confirm-password, two-factor-challenge) plus `layouts/auth`
+- `dashboard` and `settings/security` views
+- Migration `add_referral_code_to_users_table` — unique nullable `referral_code`, with backfill for pre-existing rows
+- `tests/Feature/AuthenticationTest.php` — 20 tests covering register, login, throttle, verification gate, suspension, password reset and 2FA surface
+### Fixed
+- **`config/auth.php` did not exist.** Laravel 11's slim skeleton omits it, so the framework fell back to `App\Models\User` — a class this project deliberately does not have (the model lives in `App\Domain\Identity\Models`). Every guarded request and all five auth tests died with `Class "App\Models\User" not found`. The new config points the `users` provider at the domain model, and keeps guard name `web` / broker `users` so Fortify's `config('fortify.guard')` resolves.
+- **`bootstrap/app.php` was missing the `active` middleware alias**, so any route using it threw `Target class [active] does not exist`.
+- **`bootstrap/providers.php` was not registering `FortifyServiceProvider`**, so Fortify's actions, views and rate limiters were never bound.
+- **`routes/web.php` still had `require auth.php` commented out**, so `dashboard` and `settings.security` were never registered.
+- **The throttle test asserted the wrong mechanism.** Because `config('fortify.limiters.login')` names a limiter, Fortify deliberately skips its own `EnsureLoginIsNotThrottled` pipe and the throttle is enforced by Laravel's `ThrottleRequests` middleware, which returns a bare **429** and flashes no "try again in :seconds seconds" message. The assertion could never pass. It now asserts the 429 itself. **The app was already correct** — verified by driving the 6th attempt to a real 429. Added a second test proving the email+IP key scoping works, since that is what stops an attacker locking a known user out of their own account.
+
+### Changed
+- `config/session.php` — **the archive reintroduced the bug and it was reverted again.** See the LEVEL 2 entry; this file must never be overwritten from a level archive.
+
+### Verified
+- `php artisan test` — **59 passed, 137 assertions, 0 failures.**
+- `php artisan migrate --force` — `add_referral_code_to_users_table` applied cleanly against real MySQL.
+- `php artisan route:list` — **51 routes**, including all Fortify endpoints
+- Auth flows driven over real HTTP (independent of the QA driver's script-inertness — see `storage/app/HANDOFF.md`):
+  - anonymous `GET /dashboard` → **302 → `/login`**
+  - `POST /register` (valid) → **302 → `/dashboard`**, and the row persisted: `status active`, bcrypt password, `email_verified_at` null, `referral_code` generated
+  - `POST /login` (correct) → **302 → `/dashboard`**
+  - unverified user `GET /dashboard` → **302 → `/email/verify`** (the `verified` middleware working)
+  - `GET /settings/security` → **200**, 2FA markup present
+  - `POST /logout` → **302 → `/`**, and `GET /dashboard` afterwards → **302 → `/login`** (session genuinely dead)
+  - `POST /login` (wrong password) → rejected, **302 → `/login`**
+  - `POST /login` ×6 → 6th returns **429**
+- Audit trail confirmed populated in the database: `auth.login`, `auth.login_failed`, `user.registered`, each with actor id and IP.
+
+### Environment notes (not code defects)
+- Registration requires **HTTPS egress** for Laravel's `uncompromised()` breach check against HaveIBeenPwned. This machine's CLI PHP had `curl.cainfo` and `openssl.cafile` unset, so every registration threw a cURL 60 certificate error. Fixed by downloading `cacert.pem` to `storage/app/` and point `php.ini` at it. **Production on Linux has a system CA store and needs none of this.**
+- `MAIL_MAILER` must be `log` locally; the `.env` default (`smtp` on port 2525) assumes a Mailpit/Mailhog instance that is not running, so registration fails on sending the verification email. Tests are unaffected — `phpunit.xml` sets `MAIL_MAILER=array`.
+
 ## [0.3.0-foundation] — LEVEL 2: Public Marketing Website
 ### Added
 - Eleven public routes: `/`, `/services`, `/pricing`, `/how-it-works`, `/why-growza`, `/faq`, `/contact`, plus five legal pages under `/legal/*` (`terms`, `privacy`, `refund-policy`, `acceptable-use`, `cookie-policy`)

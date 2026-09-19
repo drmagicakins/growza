@@ -27,5 +27,9 @@ if (! app()->environment('production')) {
 // Public marketing site, including the `home` route that previously lived
 // inline in this file (LEVEL 2).
 require __DIR__.'/marketing.php';
-// require __DIR__.'/auth.php';        // LEVEL 3
+
+// Authenticated screens (LEVEL 3). Fortify registers the auth endpoints
+// themselves; this file holds the screens Growza owns.
+require __DIR__.'/auth.php';
+
 // require __DIR__.'/dashboard.php';   // LEVEL 5

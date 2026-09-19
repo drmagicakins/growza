@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -27,7 +28,14 @@ class User extends Authenticatable implements MustVerifyEmailContract
     use HasRoles;
     use Notifiable;
     use SoftDeletes;
+    use TwoFactorAuthenticatable;
 
+    /**
+     * `status` and `referred_by_code` are deliberately excluded: status is
+     * an administrative action (LEVEL 16) and the referral code is set
+     * explicitly by the registration Action, never mass-assigned from
+     * request input.
+     */
     protected $fillable = [
         'name',
         'email',
@@ -55,6 +63,12 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function isSuspended(): bool
     {
         return $this->status === 'suspended' || $this->status === 'banned';
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return $this->two_factor_secret !== null
+            && $this->two_factor_confirmed_at !== null;
     }
 
     // Relationships to Wallet, Orders, ReferralCode, SupportTickets etc.
