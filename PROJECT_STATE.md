@@ -25,7 +25,7 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 |---|---|---|---|
 | — | Master Architecture Specification | ✅ Complete | Reviewed with stakeholder |
 | 0 | Project Foundation | ✅ Complete | ✅ Verified — confirmed running via Docker Compose (Laravel, Nginx, PostgreSQL, Redis, queue worker, scheduler all up; `/` serves Growza homepage) |
-| 1 | Brand & Design System | ✅ Complete | 🟡 Partially verified — see below |
+| 1 | Brand & Design System | ⚠️ Complete but **BROKEN** | ❌ Real-browser QA 2026-02-14: routes/CSS/build all PASS, but **Alpine.js never initialises** — every interactive component is dead. See below. |
 
 ## Pending Levels
 
@@ -73,9 +73,36 @@ Unlike LEVEL 0, **Node/npm are available in this sandbox**, so this was verified
 
 ### Still unverified (flagged, not assumed)
 
-- The Blade templates themselves have **not** been rendered by PHP (no PHP interpreter here) — syntax was reviewed by hand but a real `php artisan serve` + visiting `/dev/design-system` in a browser has not happened. Do this next and report anything that breaks.
-- Alpine.js interactivity (modal open/close, dropdown, mobile nav toggle) has not been exercised in a real browser.
-- No responsive breakpoint check has been done against the LEVEL 58 checklist (1440/1280/1024/768/430/390/375px) — that requires actually opening the page.
+- No responsive breakpoint check has been done against the LEVEL 58 checklist (1440/1280/1024/768/430/390/375px) — that requires actually opening the page at each width.
+- The Alpine failure below is diagnosed but **not yet fixed**, so the modal, mobile nav toggle, FAQ disclosure and dismissible alert remain non-functional. The rest of LEVEL 1's component library is verified good.
+
+### ✅ Real-browser QA (2026-02-14) — the gaps above, closed
+`php artisan serve` on `127.0.0.1:8125` + headless Chromium. Scripts live in
+`storage/app/` and are rerunnable: `qa-assets.mjs` (all routes), `qa-alpine.mjs`
+(interactivity), `qa-faq.mjs` (disclosure), `probe-routes.ps1` (HTTP + build
+artifact hashes).
+
+- **Blade rendering: PASS.** All 8 routes return HTTP 200 with real content —
+  `/` 3423 chars, `/services` 1820, `/pricing` 3230, `/how-it-works` 3401,
+  `/faq` 1464, `/contact` 1648, `/dev/design-system` 1649, `/up` 66. Every title
+  is correct. **Zero console errors, zero failed requests on all 8.**
+- **Build artifacts: PASS.** `app-BosLBwkO.css` and `app-D8MKG-Ji.js` both serve
+  200 with bodies that match the byte counts in `manifest.json` — no stale hash.
+- **Tailwind safelist: PASS.** `bg-ink-50/500/950`, `bg-ember-500/900` all
+  resolve in the compiled CSS and render as real swatches.
+- **Alpine.js interactivity: ❌ FAIL — see `DESIGN_SYSTEM.md`.** `window.Alpine`
+  is `undefined` on every page and the raw `x-` directives are still in the DOM
+  (19× `x-data`, 21× `x-show`, 18× `:class`). The modal, mobile nav toggle, FAQ
+  disclosure and dismissible alert are all dead. The bundle is proven valid and
+  is fetched in full (55410 bytes, 200, `application/javascript`) but never
+  executed. **Critically: the console is completely clean** — no error surfaces,
+  so a console-only check would have wrongly passed this. Root cause not yet
+  isolated; `data-navigate-track="reload"` is the standing suspicion.
+
+This directly contradicts the earlier "LEVEL 1 partially verified" status: the
+component library's markup and CSS are verified, its **interactivity is not
+working at all**. Do not describe LEVEL 1 as done until the Alpine issue is fixed
+and re-checked with `qa-alpine.mjs`.
 
 ## Architecture Decisions Finalized This Level
 
@@ -105,8 +132,9 @@ PHP 8.3+, PostgreSQL 16 (or MySQL 8 for compatibility mode), Redis 7, Composer 2
 None active. Payment gateway and provider adapter contracts exist only as documented interfaces in `ARCHITECTURE.md` — no concrete `PaystackGateway`/`FlutterwaveGateway`/named provider adapter classes exist yet (those are LEVEL 9 and LEVEL 10 respectively).
 
 ## Known Issues
-
+- **✅ RESOLVED — "Alpine.js never initialises" was a FALSE DEFECT REPORT (closed).** The original note here claimed `window.Alpine` was `undefined` on every route and that the modal, mobile nav toggle, FAQ disclosure and dismissible alert did not work. That was an artefact of the QA harness: under the browser-automation driver, `<script>` elements in the page never execute, and every probe read its result back through that same script-inert document. **The user confirmed by clicking the FAQ disclosure in a real browser that it opens.** The bundle is valid, served correctly (HTTP 200, 55410 bytes, `application/javascript`) and executing its bytes by hand sets `window.Alpine` to an object. Full evidence, the falsified theories, the probe inventory and the docs that still need correcting are in **`storage/app/HANDOFF.md`** — read that before re-opening anything here. Do not bisect `resources/js/app.js`, `bootstrap/app.php`, or remove `data-navigate-track`; all three were proposed against a bug that does not exist.
 - **No PHP/Composer execution available in the authoring environment.** Every file here was hand-written to match real Laravel 11 / Sanctum / spatie-permission conventions, but `composer install`, `php artisan migrate`, `php artisan test`, and `php artisan serve` have **not** been executed. See "Unverified Items" below — run these yourself and report back any error so it can be fixed under the master prompt's Error Protocol (§49).
+- **`composer.json` now requires PHP >= 8.4.1** (`vendor/composer/platform_check.php` hard-fails on 8.2, which is what XAMPP ships). Confirmed 2026-02-14 with PHP 8.4.12. Anyone running the documented stack needs 8.4+, not the "PHP 8.3+" stated under Environment Requirements below.
 - `config/permission.php` is included by hand (matching spatie/laravel-permission's published defaults, with `teams => true`) since `vendor:publish` cannot run here. Worth diffing against the package's actual published version after `composer install`, in case the installed package version's default config has shifted since this was written.
 
 ## Tests
