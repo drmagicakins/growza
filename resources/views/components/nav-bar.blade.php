@@ -9,10 +9,10 @@
         <a href="{{ url('/') }}" class="font-display text-xl font-semibold text-ink-900">Growza</a>
 
         <nav class="hidden md:flex items-center gap-8 text-sm text-ink-600">
-            <a href="{{ url('/services') }}" class="hover:text-ink-900">Services</a>
-            <a href="{{ url('/pricing') }}" class="hover:text-ink-900">Pricing</a>
-            <a href="{{ url('/how-it-works') }}" class="hover:text-ink-900">How it works</a>
-            <a href="{{ url('/faq') }}" class="hover:text-ink-900">FAQ</a>
+            <a href="{{ route('services') }}" class="hover:text-ink-900">Services</a>
+            <a href="{{ route('pricing') }}" class="hover:text-ink-900">Pricing</a>
+            <a href="{{ route('how-it-works') }}" class="hover:text-ink-900">How it works</a>
+            <a href="{{ route('faq') }}" class="hover:text-ink-900">FAQ</a>
         </nav>
 
         <div class="hidden md:flex items-center gap-3">
@@ -33,10 +33,10 @@
     </div>
 
     <div x-show="mobileOpen" x-cloak class="md:hidden border-t border-ink-200 px-6 py-4 space-y-3">
-        <a href="{{ url('/services') }}" class="block text-ink-700">Services</a>
-        <a href="{{ url('/pricing') }}" class="block text-ink-700">Pricing</a>
-        <a href="{{ url('/how-it-works') }}" class="block text-ink-700">How it works</a>
-        <a href="{{ url('/faq') }}" class="block text-ink-700">FAQ</a>
+        <a href="{{ route('services') }}" class="block text-ink-700">Services</a>
+        <a href="{{ route('pricing') }}" class="block text-ink-700">Pricing</a>
+        <a href="{{ route('how-it-works') }}" class="block text-ink-700">How it works</a>
+        <a href="{{ route('faq') }}" class="block text-ink-700">FAQ</a>
         <div class="pt-3 flex gap-3">
             <x-button as="a" href="{{ url('/login') }}" variant="secondary" size="sm" class="flex-1 justify-center">Log in</x-button>
             <x-button as="a" href="{{ url('/register') }}" variant="primary" size="sm" class="flex-1 justify-center">Get started</x-button>

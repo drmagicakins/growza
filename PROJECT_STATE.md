@@ -17,7 +17,7 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 
 ## Current Version
 
-`0.2.0-foundation` (pre-1.0 — LEVEL 1 delivered)
+`0.3.0-foundation` (pre-1.0 — LEVEL 2 delivered)
 
 ## Completed Levels
 
@@ -25,13 +25,16 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 |---|---|---|---|
 | — | Master Architecture Specification | ✅ Complete | Reviewed with stakeholder |
 | 0 | Project Foundation | ✅ Complete | ✅ Verified — confirmed running via Docker Compose (Laravel, Nginx, PostgreSQL, Redis, queue worker, scheduler all up; `/` serves Growza homepage) |
-| 1 | Brand & Design System | ⚠️ Complete but **BROKEN** | ❌ Real-browser QA 2026-02-14: routes/CSS/build all PASS, but **Alpine.js never initialises** — every interactive component is dead. See below. |
+| 1 | Brand & Design System | ✅ Complete | ✅ Verified — the reported "Alpine never initialises" defect was a **QA harness artefact, not an app bug**; closed with user confirmation. See `storage/app/HANDOFF.md`. |
+| 2 | Public Marketing Website | ✅ Complete | ✅ Verified — 36 Pest tests pass, all 16 routes 200, contact form round-trip persisted to DB. First real PHP execution of this codebase. |
 
 ## Pending Levels
 
 Levels 1 through 47+ per the master prompt, sequenced into batches — see `ARCHITECTURE.md` §21 for the full batch plan (Batch A: Foundation → Batch I: v2.0 Expansion).
 
 **Immediately next: Batch A remainder** — LEVEL 3 (Authentication), LEVEL 4 (RBAC implementation on top of the schema LEVEL 0 created).
+
+**LEVEL 3 readiness note:** LEVEL 3 is authored against the LEVEL 2 route names as they now stand — unprefixed (`home`, `faq`, `contact`), with `contact.store`, `why-growza` and `legal.*`. Those all exist and were verified. The earlier local LEVEL 2 implementation used a `marketing.` name prefix and did **not** define `why-growza`/`legal.*`/`contact.store`; it is preserved on branch `level2-local-implementation` for reference only and must not be merged over this.
 
 ---
 
@@ -121,11 +124,16 @@ and re-checked with `qa-alpine.mjs`.
 
 ## Routes
 
-Only `GET /` (marketing placeholder) and the framework `/up` health check exist. Everything else is a commented-out `require` waiting on its owning level.
+**LEVEL 2 added (all verified 200):** `/`, `/services`, `/pricing`, `/how-it-works`, `/why-growza`, `/faq`, `/contact` (GET + throttled POST), the five legal pages under `/legal/*`, `/sitemap.xml`, `/robots.txt`.
+
+Also present: `/dev/design-system` (LEVEL 1, non-production only) and the framework `/up` health check. Unknown routes return a branded 404. Remaining routes are commented-out `require` lines waiting on their owning level (`auth.php` LEVEL 3, `dashboard.php` LEVEL 5).
 
 ## Environment Requirements
+**Confirmed working:** PHP **8.4.12** (8.4.1 is the hard floor — `vendor/composer/platform_check.php` rejects 8.2/8.3), MySQL 8, Node 24, Composer 2. The CLI PHP used for verification lives at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe` and needs `extension=mbstring` enabled in its `php.ini`.
 
-PHP 8.3+, PostgreSQL 16 (or MySQL 8 for compatibility mode), Redis 7, Composer 2, Node 20+ (for Vite once LEVEL 1 adds frontend build assets — not yet required at LEVEL 0).
+Node 20+ is now genuinely required — the marketing site will not render styled without `npm install && npm run build`.
+
+PostgreSQL 16 and Redis 7 remain the documented production targets (`docker-compose.yml`); Redis is not required for local dev when `SESSION_DRIVER=database`.
 
 ## Integrations
 
@@ -133,16 +141,29 @@ None active. Payment gateway and provider adapter contracts exist only as docume
 
 ## Known Issues
 - **✅ RESOLVED — "Alpine.js never initialises" was a FALSE DEFECT REPORT (closed).** The original note here claimed `window.Alpine` was `undefined` on every route and that the modal, mobile nav toggle, FAQ disclosure and dismissible alert did not work. That was an artefact of the QA harness: under the browser-automation driver, `<script>` elements in the page never execute, and every probe read its result back through that same script-inert document. **The user confirmed by clicking the FAQ disclosure in a real browser that it opens.** The bundle is valid, served correctly (HTTP 200, 55410 bytes, `application/javascript`) and executing its bytes by hand sets `window.Alpine` to an object. Full evidence, the falsified theories, the probe inventory and the docs that still need correcting are in **`storage/app/HANDOFF.md`** — read that before re-opening anything here. Do not bisect `resources/js/app.js`, `bootstrap/app.php`, or remove `data-navigate-track`; all three were proposed against a bug that does not exist.
-- **No PHP/Composer execution available in the authoring environment.** Every file here was hand-written to match real Laravel 11 / Sanctum / spatie-permission conventions, but `composer install`, `php artisan migrate`, `php artisan test`, and `php artisan serve` have **not** been executed. See "Unverified Items" below — run these yourself and report back any error so it can be fixed under the master prompt's Error Protocol (§49).
+- **✅ RESOLVED — PHP is now executable in this environment.** PHP 8.4.12 at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe`. `php artisan migrate`, `php artisan test`, `php artisan serve` and `php artisan tinker` have all been run successfully against real MySQL. **36 Pest tests pass, 69 assertions, 0 failures** (first execution of this codebase). The earlier "no PHP available" note below is retained only as history.
+- **✅ RESOLVED — `config/session.php` threw on every request.** A literal `'connection' => 'session'` named a DB connection that does not exist, so with `SESSION_DRIVER=database` every page returned 500 `Database connection [session] not configured`. Now `env('SESSION_CONNECTION')` falling back to the default connection. Redis session pooling is unaffected. Fixed during LEVEL 2 integration after the archive's copy reintroduced the broken line.
+- **LEVEL 1 style-guide sample copy needs correcting.** `resources/views/dev/design-system.blade.php` uses sample cards reading "Instagram Growth — 1,000–10,000 followers · 24–48h delivery" and "TikTok Engagement — Views & shares · Instant start". That describes a follower/engagement delivery panel, which master prompt §1 explicitly forbids. The sample data should be changed to legitimate service names (e.g. "Managed Ad Campaign — Instagram", "Creator Partnership — TikTok", "Release Campaign — Spotify"). **Not corrected automatically** — change it in place rather than replacing the file.
+- **Contact enquiries are stored but no email notification is sent.** Deliberate: notifications are LEVEL 12, and dispatching mail from the controller now would violate ARCHITECTURE.md §2 and have to be unpicked. Submissions are durably persisted and logged, so nothing is lost. Until LEVEL 12, check `contact_messages` directly.
+- **Legal pages are unreviewed drafts.** All five carry a visible draft notice. The highest-risk open item is whether Growza wallet balances constitute stored value under Nigerian financial regulation — that needs a professional answer before accepting live customer money.
+- **`config/marketing.php` and `config/growza-marketing.php` both exist.** The archive shipped two competing content files; both are retained verbatim per the integration instruction. `growza-marketing` is the one the views actually read (`config('growza-marketing.faqs')`, company name in JSON-LD). Treat `marketing.php` as a candidate for removal once confirmed unused.
+- **`ContactRequest` is dead code.** `ContactFormRequest` is the one wired into `ContactController`. Retained verbatim rather than pruned; safe to delete when convenient.
+- **No PHP/Composer execution was available in the authoring environment (historical).** Superseded by the first bullet above.
 - **`composer.json` now requires PHP >= 8.4.1** (`vendor/composer/platform_check.php` hard-fails on 8.2, which is what XAMPP ships). Confirmed 2026-02-14 with PHP 8.4.12. Anyone running the documented stack needs 8.4+, not the "PHP 8.3+" stated under Environment Requirements below.
 - `config/permission.php` is included by hand (matching spatie/laravel-permission's published defaults, with `teams => true`) since `vendor:publish` cannot run here. Worth diffing against the package's actual published version after `composer install`, in case the installed package version's default config has shifted since this was written.
 
 ## Tests
+**36 tests, 69 assertions — all passing** (`php artisan test`, PHP 8.4.12, MySQL).
 
-3 Pest tests written (`tests/Unit/ExampleTest.php`, `tests/Feature/HomepageTest.php`, `tests/Feature/HealthCheckTest.php`). **Not executed** — see Known Issues.
+- `tests/Unit/ExampleTest.php`
+- `tests/Feature/HealthCheckTest.php` — `/up`
+- `tests/Feature/HomepageTest.php`
+- `tests/Feature/MarketingPagesTest.php` — every public page renders, plus tagline/
 
 ## Security Decisions
-
+- Public contact POST is rate limited (`throttle:5,10`) and honeypot-guarded; CSRF applies via the standard `web` group.
+- `robots.txt` and the `noindex` meta tag both refuse indexing in any non-production environment, so a staging deployment cannot leak into search results.
+- Legal pages ship with visible draft notices rather than presenting unreviewed text as binding.
 - `$fillable` (not `$guarded = []`) will be enforced on every model going forward, starting with `User`.
 - Sessions, cache, and queue each use a **separate Redis logical database** so a cache flush can never touch queued jobs or active sessions.
 - `APP_ALLOW_INDEXING` env flag exists now so LEVEL 31 has a single switch rather than per-route logic to keep dashboard/admin routes out of search indexes.

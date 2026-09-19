@@ -49,3 +49,27 @@
         @apply mt-1.5 text-sm text-danger-500;
     }
 }
+
+@layer components {
+    /* Long-form legal/policy copy. Scoped class rather than a Tailwind
+       typography plugin dependency — only a handful of pages need it. */
+    .prose-growza h2 {
+        @apply font-display text-xl text-ink-900 mt-10 mb-3;
+    }
+
+    .prose-growza h3 {
+        @apply font-medium text-ink-900 mt-6 mb-2;
+    }
+
+    .prose-growza p {
+        @apply text-ink-600;
+    }
+
+    .prose-growza ul {
+        @apply list-disc pl-6 space-y-1.5 text-ink-600;
+    }
+
+    .prose-growza a {
+        @apply text-ember-700 underline underline-offset-2 hover:text-ember-600;
+    }
+}

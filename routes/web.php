@@ -15,10 +15,6 @@ use Illuminate\Support\Facades\Route;
 | are added by the level that owns them, per PROJECT_STATE.md.
 */
 
-Route::get('/', function () {
-    return view('marketing.home');
-})->name('home');
-
 // Living design-system reference (LEVEL 1). Registered only outside
 // production so the style guide never becomes a public route in a real
 // deployment — see DESIGN_SYSTEM.md.
@@ -28,6 +24,8 @@ if (! app()->environment('production')) {
     })->name('dev.design-system');
 }
 
-// require __DIR__.'/marketing.php';   // LEVEL 2
+// Public marketing site, including the `home` route that previously lived
+// inline in this file (LEVEL 2).
+require __DIR__.'/marketing.php';
 // require __DIR__.'/auth.php';        // LEVEL 3
 // require __DIR__.'/dashboard.php';   // LEVEL 5
