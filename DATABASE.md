@@ -15,7 +15,9 @@ Database strategy and current schema for Growza. Update this file whenever a mig
 
 ---
 
-## Current Schema (LEVEL 0)
+## Current Schema (LEVEL 0, amended at LEVEL 4)
+
+The tables below were created at LEVEL 0. Where LEVEL 4 changed a LEVEL 0 shape it did so with a **new** migration, per the additive rule above — see the RBAC pivot note under "RBAC".
 
 ### `users`
 Core identity table. Notably:
@@ -29,6 +31,13 @@ Standard Laravel/Sanctum framework tables. `failed_jobs` uses the UUID variant s
 
 ### RBAC — `permissions`, `roles`, `model_has_permissions`, `model_has_roles`, `role_has_permissions`
 Spatie laravel-permission schema, **team-scoped** (the `team_id` columns are present now). This means a permission can, from day one, be granted to a user *within a specific team* — required for Agencies (LEVEL 21-22) where a "Manager" role's meaning is scoped to one client team, not global. Role/permission **seeding** (the actual Super Admin/Administrator/Finance Manager/etc. roles and view_users/manage_refunds/etc. permissions listed in the master prompt's LEVEL 4) happens in `database/seeders/` at LEVEL 4, not this migration.
+
+#### Pivot `team_id` is nullable (LEVEL 4 fix — migration `2026_01_03_000_...`)
+`model_has_roles.team_id` and `model_has_permissions.team_id` are **NULL-able**, meaning "this grant is global, not scoped to a team". Until Agencies (LEVEL 21) call `setPermissionsTeamId()`, every grant is global and rows carry `team_id = NULL`; spatie's `roles()`/`permissions()` filter on `wherePivot($teamsKey, getPermissionsTeamId())`, which matches NULL-to-NULL.
+
+This required more than `->change()`: the LEVEL 0 stub had made `team_id` the first column of a composite **PRIMARY KEY**, and **MySQL/InnoDB forces every primary-key column to be NOT NULL** — so `ALTER ... MODIFY team_id NULL` is silently ignored (the migration reports DONE, `information_schema` still reads `NO`). The fix instead **drops the primary key and replaces it with an equivalent UNIQUE index** over the same columns; a UNIQUE index permits NULLs on both MySQL and SQLite while still preventing duplicate grant rows. The two pivot FKs are dropped and recreated around the key rewrite.
+
+> **False green to remember:** the Pest suite runs on SQLite in-memory, where a NULL *is* allowed inside a composite PK. The 11 RBAC tests passed even while the MySQL schema the app actually runs against was broken. Schema changes that depend on key/constraint behaviour must be checked against the real driver, not just the suite.
 
 ### `teams`, `team_user`
 Scaffolded at LEVEL 0 specifically to satisfy the v1.0→v2.0 dependency map (`ARCHITECTURE.md` §22): Agencies cannot be retrofitted onto a schema that assumed single-owner users. `team_role` is a plain string for now (Agency Owner / Manager / Finance / Campaign Manager / Viewer per LEVEL 22) — enforcement is a Policy concern, not a DB constraint.
@@ -61,5 +70,4 @@ To avoid the master prompt's "do not build ahead of the current level" instructi
 At LEVEL 0, indexes exist only where a LEVEL 0 table's own query patterns demand them (`users.status`, `sessions.last_activity`, `audit_logs.action`/`created_at`, RBAC's team-scoped composite keys). Every future migration must justify its indexes against a real query pattern from that level's feature — index-everything-by-default is explicitly against `ARCHITECTURE.md` §28 (performance discipline).
 
 ## Seeders / Factories
-
-None yet beyond framework defaults. `UserFactory` and a `RoleAndPermissionSeeder` are the first real seeders, written at LEVEL 4 once the actual role/permission list is being enforced rather than just schema-scaffolded.
+`RoleAndPermissionSeeder` (LEVEL 4) is the first real seeder: it seeds the 9 roles and 11 permissions and is idempotent (`firstOrCreate` + `syncPermissions`). It is wired into `DatabaseSeeder`, so `php artisan db:seed` is the single entry point. `UserFactory` is the first real factory (LEVEL 4).

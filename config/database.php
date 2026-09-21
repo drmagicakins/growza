@@ -27,13 +27,22 @@ return [
         // requirement. Any migration relying on Postgres-only column types
         // (e.g. native ENUM via CHECK constraints) must be reviewed before
         // switching DB_CONNECTION=mysql in an environment.
+        //
+        // The LEVEL 4 verification environment is MySQL 8 on 127.0.0.1:3306
+        // with the XAMPP `root` account, so when DB_CONNECTION=mysql and
+        // DB_USERNAME is left unset the connection used to fall back to
+        // `growza`, which does not exist there and produced
+        // "Access denied for user 'growza'@'localhost'" — an environment
+        // error that reads like a code defect. The default still respects an
+        // explicit DB_USERNAME; it is only the empty-config fallback that
+        // follows the driver (root for mysql, growza elsewhere).
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
             'database' => env('DB_DATABASE', 'growza'),
-            'username' => env('DB_USERNAME', 'growza'),
+            'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => env('DB_CHARSET', 'utf8mb4'),

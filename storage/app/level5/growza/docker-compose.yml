@@ -1,0 +1,80 @@
+#```yaml
+# Local/staging development stack — NOT the production topology.
+# Production deployment steps (Supervisor units, real TLS certs, managed
+# Postgres/Redis) are documented in DEPLOYMENT.md, not here.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - .:/var/www/html
+    environment:
+      - APP_ENV=local
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: growza
+      POSTGRES_USER: growza
+      POSTGRES_PASSWORD: growza_local_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - growza_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    command: php artisan queue:work redis --queue=payments,orders,providers,refunds,notifications,reports,maintenance --tries=3 --backoff=5
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+volumes:
+  growza_pgdata:

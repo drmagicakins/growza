@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Base element defaults. Component-level styling lives in Blade
+ * components (resources/views/components/*), not here — this file only
+ * sets the document-wide defaults every page inherits.
+ */
+[x-cloak] {
+    display: none !important;
+}
+
+@layer base {
+    html {
+        @apply antialiased;
+    }
+
+    body {
+        @apply bg-ink-50 text-ink-800 font-sans text-[15px] leading-relaxed;
+    }
+
+    h1, h2, h3, h4 {
+        @apply font-display text-ink-900;
+    }
+
+    /* Visible focus state everywhere — required by LEVEL 29 (accessibility)
+       and intentionally not suppressed with `outline-none` anywhere in this
+       codebase. */
+    a:focus-visible, button:focus-visible, input:focus-visible,
+    select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+        @apply outline outline-2 outline-offset-2 outline-ember-500;
+    }
+}
+
+@layer components {
+    /* Shared low-level primitives that Blade components compose from, kept
+       here so utility combinations aren't duplicated across component
+       files. Blade components remain the source of truth for markup/slots. */
+    .field-label {
+        @apply block text-sm font-medium text-ink-700 mb-1.5;
+    }
+
+    .field-help {
+        @apply mt-1.5 text-sm text-ink-500;
+    }
+
+    .field-error {
+        @apply mt-1.5 text-sm text-danger-500;
+    }
+}
+
+@layer components {
+    /* Long-form legal/policy copy. Scoped class rather than a Tailwind
+       typography plugin dependency — only a handful of pages need it. */
+    .prose-growza h2 {
+        @apply font-display text-xl text-ink-900 mt-10 mb-3;
+    }
+
+    .prose-growza h3 {
+        @apply font-medium text-ink-900 mt-6 mb-2;
+    }
+
+    .prose-growza p {
+        @apply text-ink-600;
+    }
+
+    .prose-growza ul {
+        @apply list-disc pl-6 space-y-1.5 text-ink-600;
+    }
+
+    .prose-growza a {
+        @apply text-ember-700 underline underline-offset-2 hover:text-ember-600;
+    }
+}

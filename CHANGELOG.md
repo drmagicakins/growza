@@ -1,6 +1,62 @@
 # CHANGELOG
 All notable changes to Growza are recorded here, newest first. Format loosely follows Keep a Changelog; versions track `PROJECT_STATE.md`.
 
+## [0.6.0-foundation] — LEVEL 5: Customer Dashboard
+### Added
+- **The real customer dashboard**, replacing the LEVEL 3 placeholder. `resources/views/dashboard/placeholder.blade.php` (which read "the full dashboard is not built yet") is deleted — nothing referenced it once these routes landed.
+- `app/Http/Controllers/Web/Dashboard/DashboardController.php` — all ten authenticated screens in one controller, deliberately: every method does the same job (resolve what exists today, hand it to a view) and there is no business logic to split out beyond what the metrics service already provides.
+- All 10 routes from the spec — `dashboard`, `dashboard.profile`, `.services`, `.orders`, `.wallet`, `.transactions`, `.referrals`, `.support`, `.notifications`, `.settings` — registered in `routes/auth.php` behind `auth` + `active` + `verified`.
+- `app/Domain/Reporting/Services/CustomerDashboardMetricsService.php` + `DTOs/CustomerDashboardMetrics.php` — the seam LEVEL 7 (orders), LEVEL 8 (wallet) and LEVEL 14 (referrals) fill in with real queries without the view, controller or route changing. Every zero is commented with the exact query that will replace it.
+- `app/Support/Money.php` — minor-unit (kobo) formatter. Presentation only: no arithmetic, no persistence, no business rules; LEVEL 8's WalletService owns real money logic.
+- `resources/views/components/layouts/dashboard.blade.php` — desktop sidebar **plus a genuinely distinct mobile pattern**: a full-height off-canvas drawer with larger touch targets (`py-3.5` vs `py-2.5`) and a backdrop, not the sidebar shrunk. Both render from one `$navItems` array so they cannot drift.
+- `resources/views/components/dashboard-nav-link.blade.php`, `resources/views/dashboard/*` (10 views).
+- `tests/Feature/CustomerDashboardTest.php` (21 tests), `tests/Unit/CustomerDashboardMetricsServiceTest.php`, `tests/Unit/MoneyTest.php`.
+- `storage/app/verify-level5-mysql.php`, `storage/app/qa-level5-http.mjs`, `storage/app/qa-level5-profile-http.mjs` — the re-runnable verification described under Verified below.
+
+### Fixed
+- **`x-dropdown-item` hardcoded `type="button"`.** Wrapping it in the logout `<form>` made the button a silent no-op — it would never submit. Fixed in the component (added a `type` prop) rather than worked around at one call site, since any future use inside a form hits the same trap.
+- **`<x-card as="a" href="...">` does not work** — the card only ever renders a `<div>` and has no `as`/`href` prop, so the Settings hub's first tile would have looked clickable and done nothing. Rewritten to wrap the card in a real `<a>`.
+- **`config/database.php` MySQL fallback named a non-existent user.** `username` defaulted to `growza` while the actual local MySQL 8 is XAMPP's passwordless `root`; the empty-config fallback now follows the driver (`root` for MySQL, `growza` elsewhere) and an explicit `DB_USERNAME` still wins. The failure read as `Access denied for user 'growza'@'localhost'` — an environment error that looks like a code defect.
+- `config/session.php` protected again (the archive shipped the 500-causing `'connection' => 'session'` for the third level running).
+
+### Verified
+- `php artisan test` — **100 passed, 222 assertions, 0 failures** (76 existing + 24 new)
+- `storage/app/verify-level5-mysql.php` against **real MySQL 8** (not SQLite): builds a real Customer through the registration path, then renders all 10 screens via the real controller — every one returns 11–18 kB of real HTML with the sidebar present, zero `Route [...] not defined` / `Undefined variable` / `ViewException`, `noindex, nofollow` on every private page, and `assignRole()` still writing `team_id = NULL` and reading back `true` (the LEVEL 4 pivot fix holds)
+- `storage/app/qa-level5-http.mjs` — **PASS, exit 0.** Raw HTTP + cookie jar: all 10 dashboard URLs 302 an anonymous visitor to `/login`; real login 302s to `/dashboard`; all 10 pages 200 with every expected string; `/dashboard/orders/1` returns exactly **404** (not 500); both Settings tiles resolve to real URLs; marketing homepage unaffected; logout closes the dashboard again
+- `storage/app/qa-level5-profile-http.mjs` — **PASS, exit 0.** The profile write driven as a browser does it: GET the form (posts to `.../user/profile-information`, spoofed `_method=PUT`, scoped CSRF token), PUT new values, re-GET and confirm the new name/phone render back, the success banner appears, the old name is gone, and the dashboard greets the new name. A duplicate phone is correctly rejected. Restores the fixture, so it is re-runnable
+- `vite build` — CSS **46.17 kB → 46.72 kB**, matching the level's own claim that the dashboard utilities compiled; `public/build/manifest.json` and the served `<link>`/`<script>` tags agree on `app-DLubIMpg.css` (build is not stale)
+- `vendor/bin/pint --test` passes on all LEVEL 5 files (one fix: multi-line empty constructor body)
+
+### Still unverified
+- No visual browser pass. The drawer's Alpine transitions and the sidebar↔drawer switch at `md` are asserted structurally but have not been seen at any of the LEVEL 58 widths. The drawer also has no focus trap — the same pre-existing gap LEVEL 29 owns.
+- `/dashboard/orders/{order}` is deliberately **not** registered: no `Order` model exists until LEVEL 7, and a route bound to nothing would be the "button that does nothing" the project rules forbid. A test asserts it 404s.
+
+## [0.5.0-foundation] — LEVEL 4: User & Role System (RBAC)
+### Added
+- `App\Domain\Identity\Enums\RoleName` / `PermissionName` — the exact 9 roles and 11 permissions named in the master prompt, backed enums so the value IS the string spatie stores (no mapping to drift)
+- `RoleAndPermissionSeeder` — idempotent (`firstOrCreate` + `syncPermissions`); seeds the 9 roles and 11 permissions and grants each role a deliberately scoped permission set. Wired into `DatabaseSeeder`
+- `App\Domain\Identity\Policies\UserPolicy` — the first real Policy, registering the pattern every later domain follows
+- `Gate::before` Super Admin bypass in `AuthServiceProvider`, so "Super Admin means everything" is central rather than repeated in every future Policy
+- Automatic `Customer` role assignment at registration (`CreateNewUser`), so self-registration can never reach admin authority
+- Permission-gated `/admin` placeholder route (`auth` → `active` → `verified` → `permission:view_users`) proving the full chain admits and rejects
+- `tests/Feature/RbacTest.php` (11 tests) + `tests/Unit/UserPolicyTest.php` (6 tests); `tests/Pest.php` now seeds roles/permissions before Feature/Integration tests so LEVEL 3 registration tests keep passing
+- `database/seeders/DatabaseSeeder.php` (was missing entirely)
+
+### Fixed
+- **RBAC pivot `team_id` could not hold NULL, so every role assignment failed.** Migration `2026_01_03_000_make_rbac_pivot_team_id_nullable`. The LEVEL 0 stub (spatie's stub, verbatim) made `model_has_roles.team_id` / `model_has_permissions.team_id` NOT NULL *and* the first column of a composite PRIMARY KEY. With no team context (`getPermissionsTeamId()` returns null here until LEVEL 21), `assignRole()` inserts `team_id = NULL` and was rejected — killing registration and all 17 RBAC tests.
+  - The naive `->change()` fix turned out to be a **silent no-op on MySQL**: InnoDB forces every PRIMARY KEY column to be NOT NULL, so `ALTER ... MODIFY team_id NULL` is accepted, the migration reports DONE, and `information_schema` still reads `NO`. Verified on MySQL 8 by reading `IS_NULLABLE` back after the statement.
+  - The shipped fix **drops the primary key and replaces it with an equivalent UNIQUE index** over the same four columns — a UNIQUE index permits NULLs on both MySQL and SQLite while still preventing duplicate grant rows — makes `team_id` nullable, and drops/recreates the two pivot FKs around the key rewrite. Fully reversible.
+  - **False green caught:** the Pest suite runs on SQLite in-memory, which *does* allow NULLs in a composite PK — so the 11 RBAC tests were passing while the MySQL schema the app runs against was broken. The fix is verified against MySQL directly (real `assignRole()` writing `team_id = null`, then `hasRole()` reading back `true`), not just via the suite.
+
+### Verified
+- `php artisan migrate:fresh --seed --force` — all **11 migrations + seeder** run clean on MySQL 8
+- `php artisan test` — **76 passed, 181 assertions, 0 failures** (LEVEL 3's 59 + LEVEL 4's 17)
+- `assignRole('Customer')` against the real MySQL DB writes a pivot row with `team_id = null`; `hasRole('Customer')` then reads `true` — the original `SQLSTATE[23000]` is gone
+- Migration rolled back and re-applied cleanly; after rollback the pivots returned to NOT NULL + composite PK, after re-apply to nullable + unique index
+- `vendor/bin/pint --test` passes on the migration
+### Still unverified
+- No browser render of the `/admin` placeholder (the QA driver cannot execute document script — see `storage/app/HANDOFF.md`); the middleware chain is proven by tests, not by a click
+
 ## [0.4.0-foundation] — LEVEL 3: Authentication
 ### Added
 - **Fortify-backed authentication** (headless): registration, login, logout, email verification, password reset, password confirmation, and TOTP two-factor with recovery codes

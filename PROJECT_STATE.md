@@ -17,7 +17,7 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 
 ## Current Version
 
-`0.4.0-foundation` (pre-1.0 — LEVEL 3 delivered)
+`0.6.0-foundation` (pre-1.0 — LEVEL 5 delivered)
 
 ## Completed Levels
 
@@ -28,14 +28,83 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 | 1 | Brand & Design System | ✅ Complete | ✅ Verified — the reported "Alpine never initialises" defect was a **QA harness artefact, not an app bug**; closed with user confirmation. See `storage/app/HANDOFF.md`. |
 | 2 | Public Marketing Website | ✅ Complete | ✅ Verified — all 16 routes 200, contact form round-trip persisted to DB. |
 | 3 | Authentication | ✅ Complete | ✅ Verified — **59 Pest tests pass (137 assertions)**, 51 routes, registration/login/logout/verification/2FA driven over real HTTP, audit trail populated. |
+| 4 | User & Role System (RBAC) | ✅ Complete | ✅ Verified — **76 Pest tests pass (181 assertions)**; 9 roles / 11 permissions seeded on MySQL, `assignRole()` writes a global (NULL-team) grant, the pivot bug is fixed and reversible. See the LEVEL 4 section. |
+| 5 | Customer Dashboard | ✅ Complete | ✅ Verified — **100 Pest tests pass (222 assertions)**; all 10 dashboard routes driven over real HTTP against real MySQL, profile edit round-trips through Fortify and reads back, `/dashboard/orders/1` is a deliberate 404. See the LEVEL 5 section. |
 
 ## Pending Levels
 
 Levels 1 through 47+ per the master prompt, sequenced into batches — see `ARCHITECTURE.md` §21 for the full batch plan (Batch A: Foundation → Batch I: v2.0 Expansion).
 
-**Immediately next: Batch A remainder** — LEVEL 4 (RBAC implementation on top of the schema LEVEL 0 created).
+**Immediately next: LEVEL 6 (Service Catalogue)** — database-driven platforms/categories/services, replacing `config('growza-marketing.services')` as the source both the marketing site and the dashboard services page read from. This is the first level that gives LEVEL 7 (orders) something real to reference.
 
-**LEVEL 4 readiness note:** the RBAC *schema* already exists from LEVEL 0 (`permissions`, `roles`, `model_has_permissions`, `model_has_roles`, `role_has_permissions`, plus `teams`/`team_user`, all team-scoped) and `config/permission.php` is in place with `teams => true`. The `permission` and `role` middleware aliases are registered in `bootstrap/app.php` and their implementations exist but are unseeded. LEVEL 4 is therefore mostly seeders + gates + a permissions UI, not schema work. `spatie/laravel-permission` is installed in `vendor/`.
+---
+
+## LEVEL 5 — Customer Dashboard (this delivery)
+
+### Delivered
+- The LEVEL 3 placeholder `/dashboard` is gone. `resources/views/dashboard/placeholder.blade.php` was deleted — it was the last thing still rendering "the full dashboard is not built yet", and nothing referenced it once the real routes landed.
+- Real dashboard layout: a desktop sidebar (`md:fixed md:w-60`) **plus a genuinely distinct mobile pattern** — a full-height off-canvas drawer with larger touch targets (`py-3.5` vs `py-2.5`) and a backdrop, not the sidebar resized. Both render from one `$navItems` array so they cannot drift.
+- All 10 routes from the spec: `/dashboard` (name `dashboard`) plus `dashboard.profile`, `.services`, `.orders`, `.wallet`, `.transactions`, `.referrals`, `.support`, `.notifications`, `.settings`.
+- The six required metrics (wallet balance, total/active/completed orders, total spent, referral earnings) via `CustomerDashboardMetricsService` — the seam LEVEL 7/8/14 fill in with real queries without the view, controller or route changing. Each zero carries a comment naming the exact query that will replace it.
+- A functional profile edit page posting to Fortify's own `user/profile-information` endpoint, reusing the `UpdateUserProfileInformation` Action that already existed from LEVEL 3 — no new controller logic for the update itself.
+- `App\Support\Money` — minor-units (kobo) currency formatter, presentation-only.
+
+### Every metric is honestly zero, not faked
+Wallet, orders and referral earnings all read `₦0.00` / `0` because no wallet, order or commission exists yet. A test asserts the dashboard renders `₦0.00` **and** the real empty state ("No campaigns yet"), not a fabricated number. Orders, wallet, transactions, referrals, support and notifications each render an explicit "not live yet" empty state rather than a fake list.
+
+### Deliberate scope limits
+- **`/dashboard/orders/{order}` is NOT registered.** There is no `Order` model to bind a route parameter to until LEVEL 7; registering it now would be the "fake dashboard where buttons do nothing" the project rules prohibit. A test asserts `/dashboard/orders/1` genuinely 404s.
+- **Only the profile screen writes.** Everything else is read-only by design, because nothing else has a model behind it yet.
+- **`/dashboard/services` reads `config('growza-marketing.services')`.** LEVEL 6 replaces that with a DB query without touching the view.
+
+### Three real bugs caught while building, not shipped
+1. **`x-dropdown-item as="button"` hardcoded `type="button"`.** Wrapping it in the logout `<form>` would have made the button a silent no-op — it would never submit. Fixed in the component itself (added a `type` prop) rather than worked around at one call site, since any future use inside a form hits the same trap.
+2. **`<x-card as="a" href="...">` does not work** — the card component only ever renders a `<div>` and has no `as`/`href` prop, so the Settings hub's first tile would have looked clickable and done nothing. Rewritten to wrap the card in a real `<a>`.
+3. **Route naming collision avoided before it shipped.** Naming the dashboard index `dashboard.index` inside the `dashboard.` group would have broken every existing `route('dashboard')` reference (Fortify's post-login redirect target, LEVEL 3 tests, view links). `/dashboard` is registered under the plain name `dashboard` outside the prefixed group; every sub-page is `dashboard.*`.
+
+### Verified this level (real MySQL 8 + PHP 8.4.12)
+- `php artisan test` — **100 passed, 222 assertions, 0 failures** (76 existing + 24 new).
+- `storage/app/verify-level5-mysql.php` — creates a real Customer through the same path registration uses, against **MySQL** (not SQLite), and renders all 10 screens through the real controller: every one returns 11–18 KB of real HTML with the sidebar present, no `Route [...] not defined` / `Undefined variable` / `ViewException`, and `noindex, nofollow` on every private page. `assignRole()` still writes `team_id = NULL` and reads back `true` (the LEVEL 4 pivot fix holds).
+- `storage/app/qa-level5-http.mjs` — **PASS, exit 0.** Over raw HTTP with a cookie jar: all 10 dashboard URLs 302 an anonymous visitor to `/login`; a real login 302s to `/dashboard`; all 10 pages then return 200 with every expected string present; `/dashboard/orders/1` returns exactly **404** (not 500); both Settings tiles resolve to real URLs; the marketing homepage is unaffected; logout 302s home and the dashboard is closed again.
+- `storage/app/qa-level5-profile-http.mjs` — **PASS, exit 0.** The profile write driven the way a browser does it: GET the form (which posts to `.../user/profile-information` with a spoofed `_method=PUT` and a CSRF token), PUT new values, then re-GET and confirm the new name and phone are rendered back, the success banner appears, the old name is gone, and the dashboard home greets the user by the new name. A duplicate phone is correctly rejected. The probe restores the fixture afterwards, so it is re-runnable.
+- `node_modules/vite/bin/vite.js build` — succeeded; CSS **46.17 kB → 46.72 kB**, matching the archive's claim that the dashboard utilities compiled. `public/build/manifest.json` and the served `<link>`/`<script>` tags agree on `app-DLubIMpg.css`, so the build is not stale.
+- `vendor/bin/pint --test` passes on all LEVEL 5 files after one fix (`CustomerDashboardMetrics` had a multi-line empty constructor body).
+
+### Still unverified
+- **No visual browser pass.** The off-canvas drawer's Alpine transitions, and the sidebar↔drawer switch at the `md` breakpoint, are asserted structurally (the markup and the `md:` classes are present in both) but have not been seen at 1440/1280/1024/768/430/390/375px. That remains part of the LEVEL 58 responsive checklist.
+- `php artisan route:list` now reports **62 routes** (was 58); 10 of them are the dashboard.
+
+---
+
+## LEVEL 4 — User & Role System / RBAC
+
+### Delivered
+- `RoleName` / `PermissionName` backed enums — the exact 9 roles and 11 permissions named in the master prompt, as the canonical source of the string values (no separate mapping to keep in sync)
+- `RoleAndPermissionSeeder` (idempotent — `firstOrCreate` / `syncPermissions` throughout) granting each role a deliberately scoped permission set; wired into `DatabaseSeeder`
+- `UserPolicy` — the first real Policy in the codebase, establishing the pattern every later domain follows
+- `Gate::before` Super Admin bypass in `AuthServiceProvider`, so "Super Admin means everything" does not depend on every future Policy remembering to special-case it
+- Every self-registered user is assigned the `Customer` role automatically; nothing above it is reachable through the public registration form
+- A minimal permission-gated `/admin` placeholder proving the full chain (`auth` → `active` → `verified` → `permission:view_users`) actually admits and rejects correctly — not just that the seeder ran
+### The pivot bug this level surfaced and fixed
+`assignRole()` failed on MySQL with `SQLSTATE[23000] ... NOT NULL constraint failed: model_has_roles.team_id`, taking out registration and all 17 RBAC tests. The LEVEL 0 stub had made `team_id` both NOT NULL **and** the first column of a composite PRIMARY KEY.
+
+- The naive `->change()` fix was a **silent no-op on MySQL** — InnoDB forces every PRIMARY KEY column to be NOT NULL, so the `ALTER ... MODIFY ... NULL` is accepted and the migration reports DONE while `information_schema` still reads `NO`. Confirmed by reading the schema back on MySQL 8.
+- Migration `2026_01_03_000_make_rbac_pivot_team_id_nullable` therefore **drops the primary key and replaces it with an equivalent UNIQUE index** (which permits NULLs on both drivers while still preventing duplicate grants), makes `team_id` nullable, and drops/recreates the pivot FKs around the rewrite. Fully reversible.
+- **False green caught:** the Pest suite runs on SQLite in-memory, which *does* allow NULLs inside a composite PK, so the RBAC tests were green while the MySQL schema the app runs against was broken. The fix is verified against MySQL directly, not just via the suite.
+
+### Deliberate scope limits
+- **Only `UserPolicy` exists.** `OrderPolicy`, `SupportTicketPolicy`, etc. are written by the level that introduces their model.
+- **`Customer` and `Reseller` hold no admin-facing permissions.** A customer's access to their own data is an ownership check in that domain's Policy, not a blanket permission.
+- **Team-scoped permissions (Agencies, LEVEL 21-22) are untouched.** Every role seeded here has `team_id = null` — spatie's default when `setPermissionsTeamId()` is never called.
+
+### Verified this level (real MySQL 8 + PHP 8.4.12)
+- `php artisan migrate:fresh --seed --force` — all **11 migrations + the RBAC seeder** run clean
+- `php artisan test` — **76 passed, 181 assertions, 0 failures** (LEVEL 3's 59 + LEVEL 4's 17)
+- `assignRole('Customer')` against real MySQL writes `model_has_roles` with `team_id = null`, and `hasRole('Customer')` reads back `true` — the original error is gone
+- Migration rolled back and re-applied cleanly (NOT NULL + composite PK restored on rollback; nullable + unique index on re-apply)
+- `vendor/bin/pint --test` passes on the migration
+### Still unverified
+- No browser render of the `/admin` placeholder (the QA driver cannot execute document script — see `storage/app/HANDOFF.md`); the middleware chain is proven by Pest, not by a click.
 
 ---
 
@@ -129,9 +198,11 @@ and re-checked with `qa-alpine.mjs`.
 
 **LEVEL 3 added (all verified):** Fortify's endpoints — `login` (GET/POST), `register`, `logout`, `password.request/email/reset/update`, `password.confirm`, `verification.notice/verify/send`, `two-factor.login/challenge/enable/confirm/disable/recovery-codes` — plus Growza's own `dashboard` and `settings.security` in `routes/auth.php`.
 
-Also present: `/dev/design-system` (LEVEL 1, non-production only) and the framework `/up` health check. Unknown routes return a branded 404. `php artisan route:list` reports **51 routes**.
+**LEVEL 5 added (all verified 200 over real HTTP):** the customer dashboard — `dashboard`, `dashboard.profile`, `dashboard.services`, `dashboard.orders`, `dashboard.wallet`, `dashboard.transactions`, `dashboard.referrals`, `dashboard.support`, `dashboard.notifications`, `dashboard.settings`. All ten carry `auth` + `active` + `verified`. `/dashboard/orders/{order}` is deliberately **not** registered until LEVEL 7 supplies an `Order` model to bind against.
 
-The only remaining commented-out `require` is `dashboard.php` (LEVEL 5), which will hold the real customer dashboard once it exists.
+Also present: `/dev/design-system` (LEVEL 1, non-production only) and the framework `/up` health check. Unknown routes return a branded 404. `php artisan route:list` reports **62 routes**.
+
+No commented-out `require` remains in `routes/web.php`. LEVEL 5 chose to register the dashboard routes inside `routes/auth.php` (they are all authenticated screens, which is what that file is for) rather than in a separate `dashboard.php`, and the stale placeholder comment was removed rather than left as a trap.
 
 ## Environment Requirements
 **Confirmed working:** PHP **8.4.12** (8.4.1 is the hard floor — `vendor/composer/platform_check.php` rejects 8.2/8.3), MySQL 8, Node 24, Composer 2. The CLI PHP used for verification lives at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe` and needs `extension=mbstring` enabled in its `php.ini`.
@@ -155,19 +226,27 @@ None active. Payment gateway and provider adapter contracts exist only as docume
 - **`ContactRequest` is dead code.** `ContactFormRequest` is the one wired into `ContactController`. Retained verbatim rather than pruned; safe to delete when convenient.
 - **No PHP/Composer execution was available in the authoring environment (historical).** Superseded by the first bullet above.
 - **`composer.json` now requires PHP >= 8.4.1** (`vendor/composer/platform_check.php` hard-fails on 8.2, which is what XAMPP ships). Confirmed 2026-02-14 with PHP 8.4.12. Anyone running the documented stack needs 8.4+, not the "PHP 8.3+" stated under Environment Requirements below.
-- **⚠️ `config/session.php` MUST NOT be overwritten from a level archive.** The level-2 **and** level-3 archives both ship a literal `'connection' => 'session'`, which names a DB connection that does not exist and makes every request 500 under `SESSION_DRIVER=database`. It has been reverted twice. If a future level archive contains this file, keep the repo's version.
+- **⚠️ `config/session.php` MUST NOT be overwritten from a level archive.** The level-2, level-3 **and level-5** archives all ship a literal `'connection' => 'session'`, which names a DB connection that does not exist and makes every request 500 under `SESSION_DRIVER=database`. It has been reverted three times. If a future level archive contains this file, keep the repo's version. (Automated: `storage/app/apply-level5.ps1` lists it under `$repoWins`.)
+- **✅ FIXED — `config/database.php` fell back to a non-existent MySQL user.** The `mysql` connection defaulted `username` to `growza`, but the actual local MySQL 8 is XAMPP's `root` with no password, and `.env` sets `DB_USERNAME=root`. `env('DB_USERNAME', 'growza')` therefore resolved fine, but any invocation where the env did not resolve (or an `.env` that omitted it) produced `Access denied for user 'growza'@'localhost'` — an environment failure that reads like a code defect. The empty-config fallback now follows the driver: `root` for MySQL, `growza` elsewhere. An explicit `DB_USERNAME` still wins.
+- **⚠️ Running `php artisan test` destroys the local MySQL fixture data — and the failure mode is silent.** `phpunit.xml` pins `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:`, and `tests/Pest.php` applies `RefreshDatabase` to every Feature/Integration test. On one run during LEVEL 5 the suite wiped the real rows in the MySQL `growza` database (every user, including the `level5-verify@example.test` fixture the HTTP probes log in as). The probes then reported `login POST -> 302 to /login` and a cascade of 419s and "nothing persisted" failures that looked exactly like a broken dashboard. **Nothing was wrong with the app.** If an HTTP probe suddenly reports 419 or "invalid credentials", re-run `storage/app/verify-level5-mysql.php` to recreate the fixture before investigating the app. Worth confirming the phpunit env is genuinely overriding before trusting a green run against MySQL.
 - **Local dev needs `MAIL_MAILER=log`.** The `.env` default (`smtp` on port 2525) assumes a Mailpit/Mailhog instance that is not running, so registration fails with a connection error when sending the verification email. Tests are unaffected (`phpunit.xml` sets `MAIL_MAILER=array`).
 - **Registration needs HTTPS egress** for Laravel's `uncompromised()` breach check against HaveIBeenPwned. The CLI PHP at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\` had `curl.cainfo` and `openssl.cafile` unset, so every registration threw a cURL 60 error. Fixed by downloading `cacert.pem` into `storage/app/` and pointing `php.ini` at it. **Production on Linux needs none of this** (system CA store). If registration 500s after a fresh PHP install, this is why.
-- **`EnsureUserIsActive` is registered but not yet applied to any route group.** It only matters once an admin can suspend a user (LEVEL 16/17). The suspension itself is already audited and the middleware is tested; it just has nothing to guard yet.
-- **Email verification is enforced by the `verified` middleware on `dashboard`, but nothing in the UI resends the link from a failure screen yet** — Fortify's `verification.send` route exists; the marketing/dashboard surface for it lands with the real dashboard at LEVEL 5.
+- **✅ PARTLY RESOLVED — `EnsureUserIsActive` now guards the dashboard.** LEVEL 5 put every one of the ten dashboard routes behind `['auth', 'active', 'verified']`, and `CustomerDashboardTest` proves a `status = suspended` user is ejected to `/login` on their very next request. It still is not on the marketing or admin groups; applying it to `/admin` belongs with LEVEL 16/17, when an admin can actually suspend someone.
+- **Email verification is still enforced by `verified` on the dashboard, and the failure screen still has no resend button.** Fortify's `verification.send` route exists and the `verify-email` view links to it, but the dashboard itself never greets an unverified user (it redirects them away first). The expected LEVEL 5 delivery of a resend surface did not happen — record it against LEVEL 3's UI polish rather than claiming it here. No unverified user can reach the dashboard, so nothing is broken; it is simply a missing convenience.
 - `config/permission.php` is included by hand (matching spatie/laravel-permission's published defaults, with `teams => true`) since `vendor:publish` cannot run here. Worth diffing against the package's actual published version after `composer install`, in case the installed package version's default config has shifted since this was written.
 
 ## Tests
-**59 tests, 137 assertions — all passing** (`php artisan test`, PHP 8.4.12, MySQL).
+**100 tests, 222 assertions — all passing** (`php artisan test`, PHP 8.4.12; suite runs on SQLite in-memory per `phpunit.xml`).
+
+- `tests/Unit/MoneyTest.php` — LEVEL 5: minor-unit formatting (2 tests)
+- `tests/Unit/CustomerDashboardMetricsServiceTest.php` — LEVEL 5: every metric zero (1 test)
+- `tests/Feature/CustomerDashboardTest.php` — LEVEL 5: all 10 pages render for a verified Customer, guests are ejected, unverified users are sent to the notice, suspended users are ejected, metrics are genuinely zero, the referral code round-trips, the profile updates via Fortify's endpoint, and `/dashboard/orders/1` 404s (21 tests)
 
 - `tests/Unit/ExampleTest.php`
+- `tests/Unit/UserPolicyTest.php` — LEVEL 4: `UserPolicy` abilities (6 tests)
 - `tests/Feature/HealthCheckTest.php` — `/up`
 - `tests/Feature/HomepageTest.php`
+- `tests/Feature/RbacTest.php` — LEVEL 4: seeded roles/permissions, per-role grants, Super Admin bypass, automatic Customer assignment, `/admin` middleware chain (11 tests)
 - `tests/Feature/MarketingPagesTest.php` — every public page renders, plus tagline/
 
 ## Security Decisions
