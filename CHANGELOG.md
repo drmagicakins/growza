@@ -1,6 +1,45 @@
 # CHANGELOG
 All notable changes to Growza are recorded here, newest first. Format loosely follows Keep a Changelog; versions track `PROJECT_STATE.md`.
 
+## [0.7.0-foundation] — LEVEL 6: Service Catalogue
+
+### Added
+- **The database-driven service catalogue**, replacing `config('growza-marketing.services')` / `.platforms` as the source both the marketing site and the dashboard services page read from — the explicit LEVEL 6 requirement ("do not hard-code services into frontend code").
+- 4 tables via migration: `platforms`, `service_categories`, `services`, `service_price_tiers`.
+- `App\Domain\Catalogue` — `Platform`, `ServiceCategory`, `Service`, `ServicePriceTier` models plus a `PricingModel` backed enum.
+- `CatalogueSeeder` — 9 platforms, 6 categories, 10 services, 7 retail price tiers; idempotent via `updateOrCreate` throughout.
+- Public service detail pages at `/services/{service:slug}` (`services.show`), with real pricing, delivery estimates and requirements.
+- `resources/views/marketing/service-detail.blade.php`.
+- `tests/Feature/CatalogueTest.php` (12 tests), `tests/Feature/DashboardCatalogueTest.php` (1), `tests/Unit/ServiceModelTest.php` (5).
+- `storage/app/probe-level6-diff.ps1`, `storage/app/probe-level6-detail.ps1`, `storage/app/apply-level6.ps1`, `storage/app/qa-level6-http.mjs` — the re-runnable integration + verification tooling.
+
+### Changed
+- `routes/marketing.php` — adds the `services.show` route.
+- `MarketingPageController` — queries Eloquent instead of reading config; adds `serviceShow()`; 404s an inactive service.
+- `DashboardController@services` — passes the real catalogue to the view.
+- `SitemapController` — appends active service URLs from the database, so a new or deactivated service cannot leave a stale sitemap.
+- `resources/views/marketing/{home,services}.blade.php` and `dashboard/services.blade.php` — services convert from array access (`$service['name']`) to object access (`$service->name`). This was flagged at LEVEL 5 as the anticipated, minimal-footprint change.
+- `config/growza-marketing.php` — the `services` and `platforms` keys are **removed** (verified absent via `config()->has()`).
+
+### Fixed
+- **The LEVEL 6 archive shipped a file with a fatal PHP parse error, and it would have taken down the whole app.** `config/growza-marketing.php` in the archive had the `'audiences' => [` opening line deleted (and a duplicated `/*`) while the `services`/`platforms` keys were stripped — leaving six orphaned array entries. Loading it produced `syntax error, unexpected token ",", expecting ";"`, which broke `php artisan config:clear`, every route, and the homepage. The homepage view still reads `config('growza-marketing.audiences')`, so this was not latent. Repaired in the repo's own copy; `config/growza-marketing.php` is now classified `repoWins` so the apply script cannot reintroduce it.
+- **`apply-level6.ps1` was not idempotent for a repo-side fix.** Its first re-run re-copied the archive's broken config over the repaired one (the exact hazard `HANDOFF-LEVEL5.md` §1 warns about). Fixed by moving the file into `$repoWins`; a re-run now reports `ADDED: 0 / ARCHIVE WON: 0`.
+- **Two LEVEL 6 tests asserted the wrong thing about entity encoding.** `CatalogueTest` and `DashboardCatalogueTest` used `assertSee('Instagram & Facebook Ad Campaign', escape: false)` — but Blade escapes `&` to `&amp;`, and `escape: false` searches the needle raw, so the assertion could never match a correctly rendered page. Removed `escape: false` on those two assertions (Pest then escapes the needle to match the served bytes). This is the same measuring-instrument class of mistake as `HANDOFF-LEVEL5.md` §2a — **the app was correct; the probe was wrong.**
+
+### Verified
+- `php artisan migrate --force` — all 4 catalogue migrations applied against **real MySQL 8**.
+- `php artisan db:seed --class=CatalogueSeeder` — seeded 9 platforms / 6 categories / 10 services / 7 tiers, read back from MySQL. Re-running left every count unchanged, proving the seeder is genuinely idempotent rather than assumed to be.
+- `php artisan test` — **118 passed, 268 assertions, 0 failures** (LEVEL 5's 100 + LEVEL 6's 18).
+- `vendor/bin/pint --test` passes on all 18 LEVEL 6 files.
+- `storage/app/qa-level6-http.mjs` — **PASS, exit 0, 17 checks, zero issues.** Over raw HTTP: `/` and `/services` 200; `SoundCloud` present on the homepage (it exists only in the `platforms` table, so this proves the DB is the source, not config); all 6 categories render; the listing links exactly 10 detail pages; **all 10 render 200**; both pricing shapes present (`one-time fee`, and the budget-range copy); `/services/not-a-real-service` returns exactly **404**; `sitemap.xml` contains service URLs; `/dashboard/services` still 302s an anonymous visitor.
+- `vite build` — succeeded; CSS 46.72 kB → 46.74 kB (no new utility classes, as expected).
+- `php artisan route:list` — **62 routes**, with `services.show` registered and confirmed present in the live route collection (`in_array('services.show', ...)` → YES).
+
+### Still unverified
+- **No visual browser pass** at any of the LEVEL 58 widths — the same standing gap as LEVELS 1/5. The catalogue markup is asserted structurally over HTTP, not seen.
+- **No admin CRUD for the catalogue.** Deliberately not built: `manage_services` (LEVEL 4's permission) stays unused until LEVEL 16 gives someone a UI. Building it now would be building ahead of its level.
+- No quantity-based pricing column exists, by design — see the `services` migration docblock.
+
 ## [0.6.0-foundation] — LEVEL 5: Customer Dashboard
 ### Added
 - **The real customer dashboard**, replacing the LEVEL 3 placeholder. `resources/views/dashboard/placeholder.blade.php` (which read "the full dashboard is not built yet") is deleted — nothing referenced it once these routes landed.

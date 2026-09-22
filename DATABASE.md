@@ -15,7 +15,7 @@ Database strategy and current schema for Growza. Update this file whenever a mig
 
 ---
 
-## Current Schema (LEVEL 0, amended at LEVEL 4)
+## Current Schema (LEVEL 0, amended at LEVEL 4, LEVEL 6)
 
 The tables below were created at LEVEL 0. Where LEVEL 4 changed a LEVEL 0 shape it did so with a **new** migration, per the additive rule above — see the RBAC pivot note under "RBAC".
 
@@ -50,13 +50,28 @@ Key-value store scoped by `group` (`general`, `payments`, `referrals`, `provider
 
 ---
 
+### `platforms` (LEVEL 6)
+The channels campaigns run through — Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Spotify, Audiomack, SoundCloud. 9 seeded by `CatalogueSeeder`. `slug` is unique and is what appears in URLs; `is_active` + `sort_order` drive the public listing.
+
+### `service_categories` (LEVEL 6)
+Groups services on the public `/services` listing (Paid Social, Content Strategy, Music Promotion, Creator Partnerships, Search & Discovery, Analytics & Reporting). 6 seeded. `services.service_category_id` cascades on delete; `services.platform_id` is nullable and nulls on delete, because a service can legitimately have no single platform (e.g. Google Search Ads) and should survive its platform being removed.
+
+### `services` (LEVEL 6)
+The orderable catalogue entry. **Deliberately has NO quantity column** — no follower count, like count or stream count. Growza's Acceptable Use Policy (LEVEL 2) rules those out structurally, so the schema does not offer a column that would only make sense for a service the platform refuses to sell. Instead `pricing_model` selects one of two shapes:
+- **`fixed`** — a flat package price; `customer_price_minor` is authoritative.
+- **`budget_range`** — the customer picks an ad-spend budget inside `[min_budget_minor, max_budget_minor]` and pays that plus `management_fee_minor`. This is what "minimum/maximum quantity or budget" maps to for a legitimate paid-advertising service.
+
+All money is stored in **minor units** (kobo) as integers — no floats anywhere in the money path. `base_price_minor` is Growza's own internal cost allocation for margin reporting (LEVEL 17) and is **never rendered on a public page**; it is nullable because inventing a cost where none is meaningfully distinct would be a fabricated number. `softDeletes()` is present so a service referenced by a future order (LEVEL 7) can be retired without orphaning history. Indexed on `(is_active, sort_order)` and `pricing_model`.
+
+### `service_price_tiers` (LEVEL 6)
+Price per tier for a service. `retail` is seeded today, mirroring `customer_price_minor`; LEVEL 20 adds reseller/agency/enterprise overrides, which is why the price lives in its own table rather than only on `services`.
+
 ## Explicitly NOT Created Yet
 
-To avoid the master prompt's "do not build ahead of the current level" instruction being violated in spirit, the following tables are deliberately **absent** at LEVEL 0, even though `ARCHITECTURE.md` §4 lists them — they arrive with their owning batch:
+To avoid the master prompt's "do not build ahead of the current level" instruction being violated in spirit, the following tables are deliberately **absent**, even though `ARCHITECTURE.md` §4 lists them — they arrive with their owning batch:
 
 - `wallets`, `wallet_transactions` — LEVEL 8
 - `payment_transactions`, `payment_webhook_events` — LEVEL 9
-- `platforms`, `service_categories`, `services`, `service_price_tiers` — LEVEL 6
 - `orders`, `order_status_histories`, `order_provider_dispatches` — LEVEL 7
 - `providers`, `provider_services`, `provider_health_logs` — LEVEL 10
 - `referral_codes`, `referral_conversions`, `referral_commissions` — LEVEL 14
@@ -70,4 +85,4 @@ To avoid the master prompt's "do not build ahead of the current level" instructi
 At LEVEL 0, indexes exist only where a LEVEL 0 table's own query patterns demand them (`users.status`, `sessions.last_activity`, `audit_logs.action`/`created_at`, RBAC's team-scoped composite keys). Every future migration must justify its indexes against a real query pattern from that level's feature — index-everything-by-default is explicitly against `ARCHITECTURE.md` §28 (performance discipline).
 
 ## Seeders / Factories
-`RoleAndPermissionSeeder` (LEVEL 4) is the first real seeder: it seeds the 9 roles and 11 permissions and is idempotent (`firstOrCreate` + `syncPermissions`). It is wired into `DatabaseSeeder`, so `php artisan db:seed` is the single entry point. `UserFactory` is the first real factory (LEVEL 4).
+`RoleAndPermissionSeeder` (LEVEL 4) seeds the 9 roles and 11 permissions and is idempotent (`firstOrCreate` + `syncPermissions`). `CatalogueSeeder` (LEVEL 6) seeds 9 platforms, 6 categories, 10 services and 7 retail price tiers, idempotent via `updateOrCreate` throughout — verified by re-running it against MySQL and confirming every count is unchanged. Both are wired into `DatabaseSeeder`, so `php artisan db:seed` remains the single entry point. `UserFactory` is the first real factory (LEVEL 4).

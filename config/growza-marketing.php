@@ -28,67 +28,8 @@ return [
     ],
 
     /*
-    | Service categories shown on the marketing site. These describe
-    | legitimate marketing work — campaign management, content strategy,
-    | paid advertising via platforms' official ad products, editorial
-    | pitching. Nothing here promises artificial engagement, purchased
-    | followers, or anything that violates a third-party platform's terms.
+    | Target audiences named in the master prompt.
     */
-    'services' => [
-        [
-            'slug' => 'paid-social',
-            'name' => 'Paid Social Campaigns',
-            'summary' => 'Managed advertising through the official ad platforms — audience research, creative testing, and budget optimisation handled end to end.',
-            'detail' => 'We plan, launch and manage campaigns through Meta Ads Manager, TikTok Ads Manager, Google Ads and LinkedIn Campaign Manager. You keep ownership of your ad accounts and see exactly where budget goes.',
-            'platforms' => ['Instagram', 'Facebook', 'TikTok', 'YouTube', 'X', 'LinkedIn'],
-        ],
-        [
-            'slug' => 'content-strategy',
-            'name' => 'Content Strategy & Production',
-            'summary' => 'A publishing plan built around what your audience actually engages with, plus the creative to execute it.',
-            'detail' => 'Content audits, channel-specific posting strategy, scripting and short-form video direction. Built for teams who are posting consistently but not seeing the return.',
-            'platforms' => ['Instagram', 'TikTok', 'YouTube', 'LinkedIn'],
-        ],
-        [
-            'slug' => 'music-promotion',
-            'name' => 'Music & Artist Promotion',
-            'summary' => 'Editorial playlist pitching, release planning, and campaign support for independent artists and labels.',
-            'detail' => 'Release rollout planning, pitching to editorial and curator playlists through legitimate submission channels, and paid campaign support around a release window.',
-            'platforms' => ['Spotify', 'Audiomack', 'SoundCloud', 'YouTube', 'TikTok'],
-        ],
-        [
-            'slug' => 'creator-partnerships',
-            'name' => 'Creator & Influencer Partnerships',
-            'summary' => 'Sourcing, vetting and managing creator collaborations with clear deliverables and disclosed partnerships.',
-            'detail' => 'We identify creators whose audience genuinely overlaps with yours, negotiate scope, and manage delivery. All partnerships are disclosed in line with advertising standards.',
-            'platforms' => ['Instagram', 'TikTok', 'YouTube'],
-        ],
-        [
-            'slug' => 'search-visibility',
-            'name' => 'Search & Discovery',
-            'summary' => 'Technical SEO, content optimisation, and local discovery for businesses that need to be found.',
-            'detail' => 'Site audits, keyword and intent research, on-page optimisation, and Google Business Profile management for businesses serving a local market.',
-            'platforms' => [],
-        ],
-        [
-            'slug' => 'campaign-analytics',
-            'name' => 'Campaign Analytics & Reporting',
-            'summary' => 'Proper measurement, so you can tell which spend actually produced results.',
-            'detail' => 'Tracking setup, attribution configuration, and reporting dashboards that report on outcomes rather than vanity metrics.',
-            'platforms' => [],
-        ],
-    ],
-
-    /*
-    | Platforms Growza runs campaigns on. Displayed as a capability list —
-    | these are platforms whose official advertising and publishing tools
-    | we work through, not services sold against them.
-    */
-    'platforms' => [
-        'Instagram', 'TikTok', 'YouTube', 'Facebook', 'X',
-        'LinkedIn', 'Spotify', 'Audiomack', 'SoundCloud',
-    ],
-
     'audiences' => [
         ['name' => 'Creators', 'description' => 'Building an audience around what you make, without guessing at what the algorithm wants this month.'],
         ['name' => 'Musicians & Labels', 'description' => 'Release campaigns that put the record in front of people who are likely to listen to it twice.'],

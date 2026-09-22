@@ -29,14 +29,14 @@
                 <div class="mt-8 flex flex-wrap gap-3">
                     <?php if (isset($component)) { $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['as' => 'a','href' => ''.e(url('/register')).'','variant' => 'primary','size' => 'lg']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['as' => 'a','href' => ''.e(route('register')).'','variant' => 'primary','size' => 'lg']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('button'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['as' => 'a','href' => ''.e(url('/register')).'','variant' => 'primary','size' => 'lg']); ?>Create an account <?php echo $__env->renderComponent(); ?>
+<?php $component->withAttributes(['as' => 'a','href' => ''.e(route('register')).'','variant' => 'primary','size' => 'lg']); ?>Create an account <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561)): ?>
 <?php $attributes = $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561; ?>
@@ -77,8 +77,8 @@
         <div class="max-w-content mx-auto px-6 py-10">
             <p class="text-sm text-ink-500 mb-4">Campaigns delivered across</p>
             <ul class="flex flex-wrap gap-x-8 gap-y-3">
-                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = config('growza-marketing.platforms'); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $platform): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                    <li class="text-ink-700 font-medium"><?php echo e($platform); ?></li>
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $platforms; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $platform): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <li class="text-ink-700 font-medium"><?php echo e($platform->name); ?></li>
                 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
             </ul>
         </div>
@@ -107,22 +107,22 @@
 <?php endif; ?>
 
         <div class="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = config('growza-marketing.services'); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $service): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <?php if (isset($component)) { $__componentOriginal53747ceb358d30c0105769f8471417f6 = $component; } ?>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $services; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $service): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <a href="<?php echo e(route('services.show', $service)); ?>" class="block">
+                    <?php if (isset($component)) { $__componentOriginal53747ceb358d30c0105769f8471417f6 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal53747ceb358d30c0105769f8471417f6 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.card','data' => ['class' => 'flex flex-col']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.card','data' => ['class' => 'flex flex-col h-full hover:border-ink-400 transition-colors']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('card'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['class' => 'flex flex-col']); ?>
-                    <h3 class="font-display text-lg text-ink-900"><?php echo e($service['name']); ?></h3>
-                    <p class="mt-2 text-sm text-ink-600 flex-1"><?php echo e($service['summary']); ?></p>
-                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(! empty($service['platforms'])): ?>
+<?php $component->withAttributes(['class' => 'flex flex-col h-full hover:border-ink-400 transition-colors']); ?>
+                        <h3 class="font-display text-lg text-ink-900"><?php echo e($service->name); ?></h3>
+                        <p class="mt-2 text-sm text-ink-600 flex-1"><?php echo e($service->summary); ?></p>
                         <div class="mt-4 flex flex-wrap gap-1.5">
-                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = array_slice($service['platforms'], 0, 4); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $platform): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($service->platform): ?>
                                 <?php if (isset($component)) { $__componentOriginal2ddbc40e602c342e508ac696e52f8719 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal2ddbc40e602c342e508ac696e52f8719 = $attributes; } ?>
 <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.badge','data' => ['variant' => 'neutral']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
@@ -132,7 +132,7 @@
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['variant' => 'neutral']); ?><?php echo e($platform); ?> <?php echo $__env->renderComponent(); ?>
+<?php $component->withAttributes(['variant' => 'neutral']); ?><?php echo e($service->platform->name); ?> <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginal2ddbc40e602c342e508ac696e52f8719)): ?>
 <?php $attributes = $__attributesOriginal2ddbc40e602c342e508ac696e52f8719; ?>
@@ -142,10 +142,28 @@
 <?php $component = $__componentOriginal2ddbc40e602c342e508ac696e52f8719; ?>
 <?php unset($__componentOriginal2ddbc40e602c342e508ac696e52f8719); ?>
 <?php endif; ?>
-                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            <?php if (isset($component)) { $__componentOriginal2ddbc40e602c342e508ac696e52f8719 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal2ddbc40e602c342e508ac696e52f8719 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.badge','data' => ['variant' => 'neutral']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('badge'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['variant' => 'neutral']); ?><?php echo e($service->category->name); ?> <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal2ddbc40e602c342e508ac696e52f8719)): ?>
+<?php $attributes = $__attributesOriginal2ddbc40e602c342e508ac696e52f8719; ?>
+<?php unset($__attributesOriginal2ddbc40e602c342e508ac696e52f8719); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal2ddbc40e602c342e508ac696e52f8719)): ?>
+<?php $component = $__componentOriginal2ddbc40e602c342e508ac696e52f8719; ?>
+<?php unset($__componentOriginal2ddbc40e602c342e508ac696e52f8719); ?>
+<?php endif; ?>
                         </div>
-                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                 <?php echo $__env->renderComponent(); ?>
+                     <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginal53747ceb358d30c0105769f8471417f6)): ?>
 <?php $attributes = $__attributesOriginal53747ceb358d30c0105769f8471417f6; ?>
@@ -155,6 +173,7 @@
 <?php $component = $__componentOriginal53747ceb358d30c0105769f8471417f6; ?>
 <?php unset($__componentOriginal53747ceb358d30c0105769f8471417f6); ?>
 <?php endif; ?>
+                </a>
             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
         </div>
 

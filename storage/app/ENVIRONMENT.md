@@ -8,6 +8,22 @@ Written during LEVEL 3. Read it before concluding that something is broken.
 
 ## 1. The exact command that runs the app
 
+**Preferred — do not hand-roll this.** `storage/app/serve-and-qa.ps1` starts the
+server if it is not already up, polls the port until it is genuinely listening,
+runs the real-HTTP QA probe, and exits with the probe's status:
+
+```powershell
+& storage\app\serve-and-qa.ps1              # serve (if needed) + probe
+& storage\app\serve-and-qa.ps1 -Seed        # also migrate --force + seed
+& storage\app\serve-and-qa.ps1 -Stop        # stop the server afterwards
+```
+
+The two traps in §1 are why that script exists: a hand-rolled launch needs
+`-WorkingDirectory` **and** a wait-for-port loop, and forgetting either produces
+the same `fetch failed` / `Unable to connect` symptom.
+
+If you do need it by hand:
+
 ```powershell
 cd c:\Users\DELL\growza\growza
 & "C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe" artisan serve --host=127.0.0.1 --port=8125
@@ -17,11 +33,25 @@ The CLI PHP lives at that Downloads path and is **not on PATH**. XAMPP's PHP 8.2
 cannot run this project at all — `vendor/composer/platform_check.php` hard-fails
 below 8.4.1.
 
-To start it detached (so it survives the shell):
+To start it detached (so it survives the shell). `-WorkingDirectory` is
+**mandatory**: `artisan` must run with the repo as its CWD, or it exits
+immediately and the next command reports `Unable to connect` — which looks
+exactly like "the server was never started":
 
 ```powershell
 Start-Process -FilePath "C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe" `
-  -ArgumentList "artisan","serve","--host=127.0.0.1","--port=8125" -WindowStyle Hidden
+  -ArgumentList "artisan","serve","--host=127.0.0.1","--port=8125" `
+  -WorkingDirectory "c:\Users\DELL\growza\growza" -WindowStyle Hidden
+```
+
+After launching detached, **poll the port before using it** — a fixed
+`Start-Sleep` is the bug, not the fix. `artisan serve` is a parent process that
+spawns a child `php -S 127.0.0.1:8125` which actually holds the port:
+
+```powershell
+while (-not (Get-NetTCPConnection -LocalPort 8125 -State Listen -ErrorAction SilentlyContinue)) {
+  Start-Sleep -Milliseconds 250
+}
 ```
 
 ## 2. Three environment traps that look like code bugs

@@ -11,14 +11,14 @@
 
     <?php if (isset($component)) { $__componentOriginalf8d4ea307ab1e58d4e472a43c8548d8e = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalf8d4ea307ab1e58d4e472a43c8548d8e = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.page-header','data' => ['eyebrow' => 'Services','title' => 'Campaign work, scoped and measured','subtitle' => 'Six service lines. Each one starts from a defined objective and reports against it.']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.page-header','data' => ['eyebrow' => 'Services','title' => 'Campaign work, scoped and measured','subtitle' => 'Every listed service links through to full pricing, delivery time and requirements.']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('page-header'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['eyebrow' => 'Services','title' => 'Campaign work, scoped and measured','subtitle' => 'Six service lines. Each one starts from a defined objective and reports against it.']); ?>
+<?php $component->withAttributes(['eyebrow' => 'Services','title' => 'Campaign work, scoped and measured','subtitle' => 'Every listed service links through to full pricing, delivery time and requirements.']); ?>
 <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginalf8d4ea307ab1e58d4e472a43c8548d8e)): ?>
@@ -31,14 +31,30 @@
 <?php endif; ?>
 
     <div class="max-w-content mx-auto px-6 py-20 space-y-16">
-        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = config('growza-marketing.services'); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $service): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-            <section class="grid gap-8 md:grid-cols-3 border-b border-ink-200 pb-16 last:border-0">
-                <div class="md:col-span-1">
-                    <h2 class="text-display-sm font-display"><?php echo e($service['name']); ?></h2>
-                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(! empty($service['platforms'])): ?>
-                        <div class="mt-4 flex flex-wrap gap-1.5">
-                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $service['platforms']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $platform): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                <?php if (isset($component)) { $__componentOriginal2ddbc40e602c342e508ac696e52f8719 = $component; } ?>
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+            <section class="border-b border-ink-200 pb-16 last:border-0">
+                <h2 class="text-display-sm font-display"><?php echo e($category->name); ?></h2>
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($category->description): ?>
+                    <p class="mt-2 text-ink-600 max-w-prose"><?php echo e($category->description); ?></p>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                <div class="mt-8 grid gap-6 md:grid-cols-2">
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $category->services; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $service): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <a href="<?php echo e(route('services.show', $service)); ?>" class="block">
+                            <?php if (isset($component)) { $__componentOriginal53747ceb358d30c0105769f8471417f6 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal53747ceb358d30c0105769f8471417f6 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.card','data' => ['class' => 'h-full hover:border-ink-400 transition-colors']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('card'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['class' => 'h-full hover:border-ink-400 transition-colors']); ?>
+                                <div class="flex items-start justify-between gap-3">
+                                    <h3 class="font-display text-lg text-ink-900"><?php echo e($service->name); ?></h3>
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($service->platform): ?>
+                                        <?php if (isset($component)) { $__componentOriginal2ddbc40e602c342e508ac696e52f8719 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal2ddbc40e602c342e508ac696e52f8719 = $attributes; } ?>
 <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.badge','data' => ['variant' => 'neutral']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('badge'); ?>
@@ -47,7 +63,7 @@
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['variant' => 'neutral']); ?><?php echo e($platform); ?> <?php echo $__env->renderComponent(); ?>
+<?php $component->withAttributes(['variant' => 'neutral']); ?><?php echo e($service->platform->name); ?> <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginal2ddbc40e602c342e508ac696e52f8719)): ?>
 <?php $attributes = $__attributesOriginal2ddbc40e602c342e508ac696e52f8719; ?>
@@ -57,16 +73,67 @@
 <?php $component = $__componentOriginal2ddbc40e602c342e508ac696e52f8719; ?>
 <?php unset($__componentOriginal2ddbc40e602c342e508ac696e52f8719); ?>
 <?php endif; ?>
-                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                        </div>
-                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                </div>
-                <div class="md:col-span-2 max-w-prose">
-                    <p class="text-lg text-ink-700"><?php echo e($service['summary']); ?></p>
-                    <p class="mt-4 text-ink-600"><?php echo e($service['detail']); ?></p>
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                </div>
+                                <p class="mt-2 text-sm text-ink-600"><?php echo e($service->summary); ?></p>
+                                <p class="mt-4 text-sm text-ink-500">Delivery: <?php echo e($service->deliveryEstimate()); ?></p>
+                             <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal53747ceb358d30c0105769f8471417f6)): ?>
+<?php $attributes = $__attributesOriginal53747ceb358d30c0105769f8471417f6; ?>
+<?php unset($__attributesOriginal53747ceb358d30c0105769f8471417f6); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal53747ceb358d30c0105769f8471417f6)): ?>
+<?php $component = $__componentOriginal53747ceb358d30c0105769f8471417f6; ?>
+<?php unset($__componentOriginal53747ceb358d30c0105769f8471417f6); ?>
+<?php endif; ?>
+                        </a>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                 </div>
             </section>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+            <?php if (isset($component)) { $__componentOriginal074a021b9d42f490272b5eefda63257c = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal074a021b9d42f490272b5eefda63257c = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.empty-state','data' => ['title' => 'No services published yet','description' => 'Check back shortly, or get in touch and we will scope something directly.']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('empty-state'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['title' => 'No services published yet','description' => 'Check back shortly, or get in touch and we will scope something directly.']); ?>
+                 <?php $__env->slot('action', null, []); ?> 
+                    <?php if (isset($component)) { $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['as' => 'a','href' => ''.e(route('contact')).'','variant' => 'primary','size' => 'sm']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('button'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['as' => 'a','href' => ''.e(route('contact')).'','variant' => 'primary','size' => 'sm']); ?>Contact us <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561)): ?>
+<?php $attributes = $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561; ?>
+<?php unset($__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginald0f1fd2689e4bb7060122a5b91fe8561)): ?>
+<?php $component = $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561; ?>
+<?php unset($__componentOriginald0f1fd2689e4bb7060122a5b91fe8561); ?>
+<?php endif; ?>
+                 <?php $__env->endSlot(); ?>
+             <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal074a021b9d42f490272b5eefda63257c)): ?>
+<?php $attributes = $__attributesOriginal074a021b9d42f490272b5eefda63257c; ?>
+<?php unset($__attributesOriginal074a021b9d42f490272b5eefda63257c); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal074a021b9d42f490272b5eefda63257c)): ?>
+<?php $component = $__componentOriginal074a021b9d42f490272b5eefda63257c; ?>
+<?php unset($__componentOriginal074a021b9d42f490272b5eefda63257c); ?>
+<?php endif; ?>
+        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
     </div>
 
     <?php if (isset($component)) { $__componentOriginalb9eda212fea7921b4a03feb1b01f47d7 = $component; } ?>

@@ -17,7 +17,7 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 
 ## Current Version
 
-`0.6.0-foundation` (pre-1.0 — LEVEL 5 delivered)
+`0.7.0-foundation` (pre-1.0 — LEVEL 6 delivered)
 
 ## Completed Levels
 
@@ -30,18 +30,61 @@ Read this before starting any new level, per the master prompt's workflow (§57)
 | 3 | Authentication | ✅ Complete | ✅ Verified — **59 Pest tests pass (137 assertions)**, 51 routes, registration/login/logout/verification/2FA driven over real HTTP, audit trail populated. |
 | 4 | User & Role System (RBAC) | ✅ Complete | ✅ Verified — **76 Pest tests pass (181 assertions)**; 9 roles / 11 permissions seeded on MySQL, `assignRole()` writes a global (NULL-team) grant, the pivot bug is fixed and reversible. See the LEVEL 4 section. |
 | 5 | Customer Dashboard | ✅ Complete | ✅ Verified — **100 Pest tests pass (222 assertions)**; all 10 dashboard routes driven over real HTTP against real MySQL, profile edit round-trips through Fortify and reads back, `/dashboard/orders/1` is a deliberate 404. See the LEVEL 5 section. |
+| 6 | Service Catalogue | ✅ Complete | ✅ Verified — **118 Pest tests pass (268 assertions)**; 4 tables migrated on real MySQL, 9 platforms / 6 categories / 10 services / 7 tiers seeded and re-seeded idempotently, all 10 detail pages 200 over real HTTP, unknown slug 404s. See the LEVEL 6 section. |
 
 ## Pending Levels
 
 Levels 1 through 47+ per the master prompt, sequenced into batches — see `ARCHITECTURE.md` §21 for the full batch plan (Batch A: Foundation → Batch I: v2.0 Expansion).
 
-**Immediately next: LEVEL 6 (Service Catalogue)** — database-driven platforms/categories/services, replacing `config('growza-marketing.services')` as the source both the marketing site and the dashboard services page read from. This is the first level that gives LEVEL 7 (orders) something real to reference.
+**Immediately next: LEVEL 7 (Order Management)** — this is the first level that can reference the catalogue for real. `services`/`service_price_tiers` now hold real, priced, orderable entries, and `PricingModel` distinguishes a flat fee from a budget-range campaign. LEVEL 7 is also what finally gives `/dashboard/orders/{order}` something to bind to (it is deliberately unregistered and 404s today).
 
 ---
 
-## LEVEL 5 — Customer Dashboard (this delivery)
+## LEVEL 6 — Service Catalogue (this delivery)
 
 ### Delivered
+- 4 new tables matching exactly what `DATABASE.md` committed to at LEVEL 0: `platforms`, `service_categories`, `services`, `service_price_tiers`.
+- `Platform`, `ServiceCategory`, `Service`, `ServicePriceTier` models in `App\Domain\Catalogue`, plus a `PricingModel` backed enum (`fixed` | `budget_range`).
+- `CatalogueSeeder` — 9 real platforms, 6 categories, 10 services, 7 retail price tiers. Idempotent via `updateOrCreate` throughout, and **verified idempotent against MySQL** (counts unchanged after a second run) rather than assumed to be.
+- Public service detail pages at `/services/{service:slug}` with real pricing, delivery estimates and requirements.
+- `config('growza-marketing.services')` and `.platforms` **removed** — the database is now the single source. Confirmed with `config()->has('growza-marketing.services')` → `absent`.
+
+### No quantity-based pricing — by design, not oversight
+`services` has **no** quantity column (no follower count, like count or stream count). Growza's Acceptable Use Policy (LEVEL 2) already ruled that out structurally, so the schema deliberately does not offer a column that would only make sense for a service the platform refuses to sell. Two pricing shapes instead:
+- **`fixed`** — a flat package price (`customer_price_minor` is authoritative). 7 of the 10 seeded services.
+- **`budget_range`** — the customer picks an ad-spend budget inside a min/max range plus a management fee. This is what "minimum/maximum quantity or budget" maps to for a legitimate paid-advertising service. 3 of the 10.
+
+### The two-template change this was always going to need
+LEVEL 5's notes flagged that moving services to the database would require converting the two templates that iterate them from array access (`$service['name']`) to object access (`$service->name`) — not a surprise, exactly the anticipated minimal-footprint change. `MarketingPageController` now queries Eloquent instead of reading config; the homepage, services listing and dashboard services page were updated accordingly.
+
+### A fatal defect in the archive, caught before it shipped
+**`config/growza-marketing.php` in the archive had a fatal PHP parse error.** Its author deleted the `'audiences' => [` opening line (and left a duplicated `/*`) while stripping the `services`/`platforms` keys, so six audience entries were left as orphaned array values. Loading it produced `syntax error, unexpected token ",", expecting ";"`, which took out `php artisan config:clear`, every route, and the homepage. The homepage view still reads `config('growza-marketing.audiences')`, so this was not latent — it would have broken the site.
+
+This also exposed that **`apply-level6.ps1` was not idempotent for a repo-side fix**: its first re-run re-copied the archive's broken config straight over the repaired one. The file is now classified `repoWins`, and a re-run reports `ADDED: 0 / ARCHIVE WON: 0`.
+
+### Two tests asserted the wrong thing — the app was right
+`CatalogueTest` and `DashboardCatalogueTest` used `assertSee('Instagram & Facebook Ad Campaign', escape: false)`. Blade escapes `&` to `&amp;`, and `escape: false` searches the needle **raw**, so the assertion could never match a correctly rendered page. Confirmed against the served bytes before changing anything: the raw name is `Instagram & Facebook Ad Campaign`, the escaped form is `Instagram &amp; Facebook Ad Campaign`. Removed `escape: false` on those two assertions. Same measuring-instrument class of mistake as `HANDOFF-LEVEL5.md` §2a.
+
+### Deliberate scope limits
+- **No admin CRUD for the catalogue.** `manage_services` (LEVEL 4's permission) stays unused until LEVEL 16 actually gives someone a UI to create/edit services. Building that now would be building ahead of its level.
+- **Only the catalogue moved to the database.** Pricing tiers copy, process steps, FAQs and audiences still live in `config/growza-marketing.php` — exactly what LEVEL 6 scoped.
+- **`/dashboard/services` remains read-only.** Ordering is LEVEL 7; every card says "Ordering opens soon" rather than showing a button that does nothing.
+
+### Verified this level (real MySQL 8 + PHP 8.4.12)
+- `php artisan migrate --force` — all 4 catalogue migrations applied clean against **real MySQL**.
+- `php artisan db:seed --class=CatalogueSeeder` — 9 platforms / 6 categories / 10 services (7 fixed + 3 budget_range) / 7 tiers, read back from MySQL. Re-seeded: every count unchanged.
+- `php artisan test` — **118 passed, 268 assertions, 0 failures** (LEVEL 5's 100 + LEVEL 6's 18).
+- `storage/app/qa-level6-http.mjs` — **PASS, exit 0, 17 checks, zero issues.** `/` and `/services` 200; `SoundCloud` on the homepage (it exists only in the `platforms` table, so this proves the DB is the source); all 6 categories render; the listing links exactly 10 detail pages and **all 10 render 200**; both pricing shapes present; `/services/not-a-real-service` returns exactly **404**; `sitemap.xml` includes service URLs; `/dashboard/services` still 302s an anonymous visitor.
+- `vendor/bin/pint --test` passes on all 18 LEVEL 6 files.
+- `vite build` — CSS 46.72 kB → **46.74 kB** (no new utility classes, as expected).
+- `php artisan route:list` — **62 routes**, `services.show` registered and confirmed present in the live route collection.
+
+### Still unverified
+- **No visual browser pass** at any of the LEVEL 58 widths — the same standing gap as LEVELS 1/5. The catalogue markup is asserted over HTTP, not seen.
+
+---
+
+## LEVEL 5 — Customer Dashboard
 - The LEVEL 3 placeholder `/dashboard` is gone. `resources/views/dashboard/placeholder.blade.php` was deleted — it was the last thing still rendering "the full dashboard is not built yet", and nothing referenced it once the real routes landed.
 - Real dashboard layout: a desktop sidebar (`md:fixed md:w-60`) **plus a genuinely distinct mobile pattern** — a full-height off-canvas drawer with larger touch targets (`py-3.5` vs `py-2.5`) and a backdrop, not the sidebar resized. Both render from one `$navItems` array so they cannot drift.
 - All 10 routes from the spec: `/dashboard` (name `dashboard`) plus `dashboard.profile`, `.services`, `.orders`, `.wallet`, `.transactions`, `.referrals`, `.support`, `.notifications`, `.settings`.
@@ -55,7 +98,7 @@ Wallet, orders and referral earnings all read `₦0.00` / `0` because no wallet,
 ### Deliberate scope limits
 - **`/dashboard/orders/{order}` is NOT registered.** There is no `Order` model to bind a route parameter to until LEVEL 7; registering it now would be the "fake dashboard where buttons do nothing" the project rules prohibit. A test asserts `/dashboard/orders/1` genuinely 404s.
 - **Only the profile screen writes.** Everything else is read-only by design, because nothing else has a model behind it yet.
-- **`/dashboard/services` reads `config('growza-marketing.services')`.** LEVEL 6 replaces that with a DB query without touching the view.
+- **`/dashboard/services` reads the `services` table** as of LEVEL 6 (it read `config('growza-marketing.services')` until then). The view switched from array to object access (`$service->name`) in the same change.
 
 ### Three real bugs caught while building, not shipped
 1. **`x-dropdown-item as="button"` hardcoded `type="button"`.** Wrapping it in the logout `<form>` would have made the button a silent no-op — it would never submit. Fixed in the component itself (added a `type` prop) rather than worked around at one call site, since any future use inside a form hits the same trap.
@@ -186,7 +229,18 @@ and re-checked with `qa-alpine.mjs`.
 
 ## Database Changes This Level
 
-8 migrations — see `DATABASE.md` for the full entity list and rationale per table. No domain tables (wallets, orders, services, etc.) are created yet; those arrive with their owning levels per the batch plan.
+**LEVEL 6 adds the first 4 domain tables** (12 migrations total now):
+
+| Table | Purpose |
+|---|---|
+| `platforms` | The channels campaigns run through (Instagram, TikTok, Spotify…). 9 seeded. |
+| `service_categories` | Groups services on the public listing. 6 seeded. |
+| `services` | The orderable catalogue entry — pricing model, budget range, delivery estimate, requirements. 10 seeded. |
+| `service_price_tiers` | Price per tier (`retail` today; LEVEL 20 adds reseller/agency/enterprise). 7 seeded. |
+
+`services` deliberately has **no quantity column** — the Acceptable Use Policy rules out follower/like/stream counts structurally. See the migration docblock and `DATABASE.md`.
+
+Wallet, order and referral tables still do not exist; they arrive with LEVELS 7, 8 and 14. The 8 LEVEL 0 baseline migrations are unchanged.
 
 ## Installed Packages (from composer.json)
 
@@ -198,9 +252,13 @@ and re-checked with `qa-alpine.mjs`.
 
 **LEVEL 3 added (all verified):** Fortify's endpoints — `login` (GET/POST), `register`, `logout`, `password.request/email/reset/update`, `password.confirm`, `verification.notice/verify/send`, `two-factor.login/challenge/enable/confirm/disable/recovery-codes` — plus Growza's own `dashboard` and `settings.security` in `routes/auth.php`.
 
+**LEVEL 6 added (verified 200 over real HTTP):** `/services/{service:slug}` (name `services.show`) — the catalogue detail page, 404ing an inactive or unknown slug. `route:list` confirms it is live.
+
 **LEVEL 5 added (all verified 200 over real HTTP):** the customer dashboard — `dashboard`, `dashboard.profile`, `dashboard.services`, `dashboard.orders`, `dashboard.wallet`, `dashboard.transactions`, `dashboard.referrals`, `dashboard.support`, `dashboard.notifications`, `dashboard.settings`. All ten carry `auth` + `active` + `verified`. `/dashboard/orders/{order}` is deliberately **not** registered until LEVEL 7 supplies an `Order` model to bind against.
 
 Also present: `/dev/design-system` (LEVEL 1, non-production only) and the framework `/up` health check. Unknown routes return a branded 404. `php artisan route:list` reports **62 routes**.
+
+Route-count note: LEVEL 5's own notes recorded 62, and the LEVEL 5 archive did **not** contain `services.show` — LEVEL 6 adds it. The current verified figure is **62 routes with `services.show` present in the live route collection**, confirmed by reading it back in tinker rather than by trusting the footer number alone.
 
 No commented-out `require` remains in `routes/web.php`. LEVEL 5 chose to register the dashboard routes inside `routes/auth.php` (they are all authenticated screens, which is what that file is for) rather than in a separate `dashboard.php`, and the stale placeholder comment was removed rather than left as a trap.
 
@@ -208,6 +266,8 @@ No commented-out `require` remains in `routes/web.php`. LEVEL 5 chose to registe
 **Confirmed working:** PHP **8.4.12** (8.4.1 is the hard floor — `vendor/composer/platform_check.php` rejects 8.2/8.3), MySQL 8, Node 24, Composer 2. The CLI PHP used for verification lives at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe` and needs `extension=mbstring` enabled in its `php.ini`.
 
 Node 20+ is now genuinely required — the marketing site will not render styled without `npm install && npm run build`.
+
+**LEVEL 6 adds a real database dependency for the public site.** The homepage, `/services` and `/services/{slug}` all query the catalogue tables, so the site no longer renders correctly against an empty database. `php artisan migrate --seed` (or `db:seed --class=CatalogueSeeder`) must have run, or the homepage shows no platforms/services and `/services` shows its empty state. The `MarketingPagesTest`/`CatalogueTest` suite seeds what it needs automatically.
 
 PostgreSQL 16 and Redis 7 remain the documented production targets (`docker-compose.yml`); Redis is not required for local dev when `SESSION_DRIVER=database`.
 
@@ -217,16 +277,22 @@ None active. Payment gateway and provider adapter contracts exist only as docume
 
 ## Known Issues
 - **✅ RESOLVED — "Alpine.js never initialises" was a FALSE DEFECT REPORT (closed).** The original note here claimed `window.Alpine` was `undefined` on every route and that the modal, mobile nav toggle, FAQ disclosure and dismissible alert did not work. That was an artefact of the QA harness: under the browser-automation driver, `<script>` elements in the page never execute, and every probe read its result back through that same script-inert document. **The user confirmed by clicking the FAQ disclosure in a real browser that it opens.** The bundle is valid, served correctly (HTTP 200, 55410 bytes, `application/javascript`) and executing its bytes by hand sets `window.Alpine` to an object. Full evidence, the falsified theories, the probe inventory and the docs that still need correcting are in **`storage/app/HANDOFF.md`** — read that before re-opening anything here. Do not bisect `resources/js/app.js`, `bootstrap/app.php`, or remove `data-navigate-track`; all three were proposed against a bug that does not exist.
-- **✅ RESOLVED — PHP is now executable in this environment.** PHP 8.4.12 at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe`. `php artisan migrate`, `php artisan test`, `php artisan serve` and `php artisan tinker` have all been run successfully against real MySQL. **36 Pest tests pass, 69 assertions, 0 failures** (first execution of this codebase). The earlier "no PHP available" note below is retained only as history.
+- **✅ RESOLVED — PHP is now executable in this environment.** PHP 8.4.12 at `C:\Users\DELL\Downloads\php-8.4.12-nts-Win32-vs17-x64\php.exe`. `php artisan migrate`, `php artisan test`, `php artisan serve` and `php artisan tinker` have all been run successfully against real MySQL. The suite now stands at **118 tests, 268 assertions, 0 failures** (36 at the first execution of this codebase, after LEVEL 2). The earlier "no PHP available" note below is retained only as history.
 - **✅ RESOLVED — `config/session.php` threw on every request.** A literal `'connection' => 'session'` named a DB connection that does not exist, so with `SESSION_DRIVER=database` every page returned 500 `Database connection [session] not configured`. Now `env('SESSION_CONNECTION')` falling back to the default connection. Redis session pooling is unaffected. Fixed during LEVEL 2 integration after the archive's copy reintroduced the broken line.
 - **LEVEL 1 style-guide sample copy needs correcting.** `resources/views/dev/design-system.blade.php` uses sample cards reading "Instagram Growth — 1,000–10,000 followers · 24–48h delivery" and "TikTok Engagement — Views & shares · Instant start". That describes a follower/engagement delivery panel, which master prompt §1 explicitly forbids. The sample data should be changed to legitimate service names (e.g. "Managed Ad Campaign — Instagram", "Creator Partnership — TikTok", "Release Campaign — Spotify"). **Not corrected automatically** — change it in place rather than replacing the file.
 - **Contact enquiries are stored but no email notification is sent.** Deliberate: notifications are LEVEL 12, and dispatching mail from the controller now would violate ARCHITECTURE.md §2 and have to be unpicked. Submissions are durably persisted and logged, so nothing is lost. Until LEVEL 12, check `contact_messages` directly.
 - **Legal pages are unreviewed drafts.** All five carry a visible draft notice. The highest-risk open item is whether Growza wallet balances constitute stored value under Nigerian financial regulation — that needs a professional answer before accepting live customer money.
-- **`config/marketing.php` and `config/growza-marketing.php` both exist.** The archive shipped two competing content files; both are retained verbatim per the integration instruction. `growza-marketing` is the one the views actually read (`config('growza-marketing.faqs')`, company name in JSON-LD). Treat `marketing.php` as a candidate for removal once confirmed unused.
+- **`config/marketing.php` and `config/growza-marketing.php` both exist, and BOTH are live.** The archive shipped two competing content files at LEVEL 2; both were retained verbatim. LEVEL 6 clarified the split rather than resolving it:
+  - **`growza-marketing`** is what the marketing **views and controllers** read — `config('growza-marketing.audiences')`, `.faqs`, `.process`, `.pricing`, `.testimonials`. Its `services`/`platforms` keys were removed at LEVEL 6 (now DB-driven).
+  - **`marketing`** is genuinely still referenced by live code: `app/Http/Requests/ContactRequest.php` reads `config('marketing.contact.subjects')`, and `resources/views/components/site-footer.blade.php` reads `config('marketing.contact.email')`. **It cannot simply be deleted.**
+  - `app/Http/Controllers/Web/PageController.php` also reads `config('marketing.*')` extensively, but **no route references it** — `routes/marketing.php` uses `MarketingPageController`. So `PageController` is dead code carrying a second, divergent copy of the marketing content.
+  - Net: `marketing.php` is **not** safe to delete wholesale (the contact keys are in use), but its `services`, `platforms`, `audiences`, `process`, `pricing_tiers` and `faqs` keys are shadowed by `growza-marketing` and only reachable through the dead `PageController`. Consolidating the two files is a real cleanup task, not a one-line delete — no level has claimed it yet.
+- **⚠️ The LEVEL 6 archive's `config/growza-marketing.php` had a fatal parse error.** Its `'audiences' => [` opening line was deleted (and a `/*` duplicated) while the `services`/`platforms` keys were stripped, leaving orphaned array entries. The file is now classified `repoWins` in `storage/app/apply-level6.ps1`, so re-running the apply script cannot reintroduce it. **If a future level archive contains this file, keep the repo's version.**
+- **⚠️ `apply-level6.ps1` was briefly non-idempotent.** Its first re-run copied the archive's broken config over the repaired one. Fixed (file moved to `repoWins`); a re-run now reports `ADDED: 0 / ARCHIVE WON: 0`. The general lesson from `HANDOFF-LEVEL5.md` §1 holds: an apply script is only idempotent for files it does not touch, so any repo-side fix to an `archiveWins` file must be re-classified, not just edited.
 - **`ContactRequest` is dead code.** `ContactFormRequest` is the one wired into `ContactController`. Retained verbatim rather than pruned; safe to delete when convenient.
 - **No PHP/Composer execution was available in the authoring environment (historical).** Superseded by the first bullet above.
 - **`composer.json` now requires PHP >= 8.4.1** (`vendor/composer/platform_check.php` hard-fails on 8.2, which is what XAMPP ships). Confirmed 2026-02-14 with PHP 8.4.12. Anyone running the documented stack needs 8.4+, not the "PHP 8.3+" stated under Environment Requirements below.
-- **⚠️ `config/session.php` MUST NOT be overwritten from a level archive.** The level-2, level-3 **and level-5** archives all ship a literal `'connection' => 'session'`, which names a DB connection that does not exist and makes every request 500 under `SESSION_DRIVER=database`. It has been reverted three times. If a future level archive contains this file, keep the repo's version. (Automated: `storage/app/apply-level5.ps1` lists it under `$repoWins`.)
+- **⚠️ `config/session.php` MUST NOT be overwritten from a level archive.** The level-2, level-3, level-5 **and level-6** archives all ship a literal `'connection' => 'session'`, which names a DB connection that does not exist and makes every request 500 under `SESSION_DRIVER=database`. It has been reverted four times. If a future level archive contains this file, keep the repo's version. (Automated: `storage/app/apply-level5.ps1` and `storage/app/apply-level6.ps1` both list it under `$repoWins`.)
 - **✅ FIXED — `config/database.php` fell back to a non-existent MySQL user.** The `mysql` connection defaulted `username` to `growza`, but the actual local MySQL 8 is XAMPP's `root` with no password, and `.env` sets `DB_USERNAME=root`. `env('DB_USERNAME', 'growza')` therefore resolved fine, but any invocation where the env did not resolve (or an `.env` that omitted it) produced `Access denied for user 'growza'@'localhost'` — an environment failure that reads like a code defect. The empty-config fallback now follows the driver: `root` for MySQL, `growza` elsewhere. An explicit `DB_USERNAME` still wins.
 - **⚠️ Running `php artisan test` destroys the local MySQL fixture data — and the failure mode is silent.** `phpunit.xml` pins `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:`, and `tests/Pest.php` applies `RefreshDatabase` to every Feature/Integration test. On one run during LEVEL 5 the suite wiped the real rows in the MySQL `growza` database (every user, including the `level5-verify@example.test` fixture the HTTP probes log in as). The probes then reported `login POST -> 302 to /login` and a cascade of 419s and "nothing persisted" failures that looked exactly like a broken dashboard. **Nothing was wrong with the app.** If an HTTP probe suddenly reports 419 or "invalid credentials", re-run `storage/app/verify-level5-mysql.php` to recreate the fixture before investigating the app. Worth confirming the phpunit env is genuinely overriding before trusting a green run against MySQL.
 - **Local dev needs `MAIL_MAILER=log`.** The `.env` default (`smtp` on port 2525) assumes a Mailpit/Mailhog instance that is not running, so registration fails with a connection error when sending the verification email. Tests are unaffected (`phpunit.xml` sets `MAIL_MAILER=array`).
@@ -236,8 +302,11 @@ None active. Payment gateway and provider adapter contracts exist only as docume
 - `config/permission.php` is included by hand (matching spatie/laravel-permission's published defaults, with `teams => true`) since `vendor:publish` cannot run here. Worth diffing against the package's actual published version after `composer install`, in case the installed package version's default config has shifted since this was written.
 
 ## Tests
-**100 tests, 222 assertions — all passing** (`php artisan test`, PHP 8.4.12; suite runs on SQLite in-memory per `phpunit.xml`).
+**118 tests, 268 assertions — all passing** (`php artisan test`, PHP 8.4.12; suite runs on SQLite in-memory per `phpunit.xml`).
 
+- `tests/Feature/CatalogueTest.php` — LEVEL 6: the seeded catalogue (9 platforms, 6 categories, a service per category), retail tiers matching customer prices, seeder idempotency, the public listing grouped by real category, fixed vs budget-range detail rendering, inactive and unknown slugs 404ing, and sitemap inclusion/exclusion (12 tests)
+- `tests/Feature/DashboardCatalogueTest.php` — LEVEL 6: the dashboard services page renders real catalogue entries marked as not yet orderable (1 test)
+- `tests/Unit/ServiceModelTest.php` — LEVEL 6: the `Service` model and `PricingModel` enum (5 tests)
 - `tests/Unit/MoneyTest.php` — LEVEL 5: minor-unit formatting (2 tests)
 - `tests/Unit/CustomerDashboardMetricsServiceTest.php` — LEVEL 5: every metric zero (1 test)
 - `tests/Feature/CustomerDashboardTest.php` — LEVEL 5: all 10 pages render for a verified Customer, guests are ejected, unverified users are sent to the notice, suspended users are ejected, metrics are genuinely zero, the referral code round-trips, the profile updates via Fortify's endpoint, and `/dashboard/orders/1` 404s (21 tests)
@@ -251,6 +320,9 @@ None active. Payment gateway and provider adapter contracts exist only as docume
 
 ## Security Decisions
 - Public contact POST is rate limited (`throttle:5,10`) and honeypot-guarded; CSRF applies via the standard `web` group.
+- **`services.show` binds on `slug`, not `id`** (`getRouteKeyName()`), so the public URL never exposes a sequential primary key and cannot be enumerated.
+- **Inactive services are 404, not merely hidden.** `MarketingPageController@serviceShow` calls `abort_unless($service->is_active, 404)`, so deactivating a service removes it from the catalogue *and* its detail page in one step — verified over HTTP (`/services/not-a-real-service` → 404) and by `CatalogueTest`.
+- **`base_price_minor` (Growza's internal cost) is never rendered on a public page.** Only `customer_price_minor`, or the budget range plus management fee, reaches the view. Internal margin stays internal until LEVEL 17's reporting.
 - `robots.txt` and the `noindex` meta tag both refuse indexing in any non-production environment, so a staging deployment cannot leak into search results.
 - Legal pages ship with visible draft notices rather than presenting unreviewed text as binding.
 - `$fillable` (not `$guarded = []`) will be enforced on every model going forward, starting with `User`.

@@ -2,4 +2,5 @@ Command to start Laravel Web App -
 Below:
 	"docker compose restart nginx app"
 
-NEXT > You have downloaded LEVEL 2 from Claude and it's inside the download dir, locate it and integrate accordingly.
+NEXT > Check that LEVEL 6 has no issues before moving to LEVEL 7
+NEXT > You have downloaded LEVEL 7 from Claude and it's inside the download dir, locate it and integrate accordingly.

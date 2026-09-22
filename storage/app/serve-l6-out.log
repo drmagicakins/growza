@@ -1,0 +1,21 @@
+
+   INFO  Server running on [http://127.0.0.1:8125].  
+
+  Press Ctrl+C to stop the server
+
+  2026-09-22 21:04:34 / ................................................ ~ 1s
+  2026-09-22 21:06:43 / ................................................ ~ 1s
+  2026-09-22 21:06:44 /services ........................................ ~ 1s
+  2026-09-22 21:06:45 /services/instagram-facebook-ad-campaign ... ~ 520.94ms
+  2026-09-22 21:06:46 /services/tiktok-ads-campaign .............. ~ 688.95ms
+  2026-09-22 21:06:46 /services/google-search-ads-campaign ....... ~ 529.37ms
+  2026-09-22 21:06:47 /services/content-strategy-starter ......... ~ 511.55ms
+  2026-09-22 21:06:48 /services/short-form-video-production ...... ~ 506.83ms
+  2026-09-22 21:06:49 /services/release-campaign-single .......... ~ 508.71ms
+  2026-09-22 21:06:49 /services/audiomack-soundcloud-push ........ ~ 506.46ms
+  2026-09-22 21:06:50 /services/creator-partnership-sourcing ..... ~ 508.26ms
+  2026-09-22 21:06:50 /services/local-seo-setup ........................ ~ 1s
+  2026-09-22 21:06:51 /services/campaign-analytics-setup ......... ~ 526.50ms
+  2026-09-22 21:06:52 /services/not-a-real-service ..................... ~ 1s
+  2026-09-22 21:06:53 /sitemap.xml ............................... ~ 505.44ms
+  2026-09-22 21:06:53 /dashboard/services ........................ ~ 532.86ms
